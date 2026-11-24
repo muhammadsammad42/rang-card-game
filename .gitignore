@@ -41,3 +41,11 @@ example
 # generated native folders
 /ios
 /android
+
+# secrets — Firebase config lives here, never commit it
+.env
+.env.*
+!.env.example
+
+# test output
+coverage/
