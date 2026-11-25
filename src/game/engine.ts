@@ -111,6 +111,7 @@ function startHand({ seed, dealer, firstDealer, handNumber, score }: HandSetup):
     bid: null,
     forcedBid: false,
     hiddenCard: null,
+    rangCard: null,
     rangSuit: null,
     rangRevealed: false,
     revealedAtTrick: null,
@@ -178,6 +179,7 @@ function chooseRang(state: GameState, seat: Seat, cardId: string): ActionResult 
     hands,
     stock: state.stock.slice(next),
     hiddenCard: card,
+    rangCard: card,
     rangSuit: card.suit,
     turn: seat,
   });
@@ -482,6 +484,7 @@ export function getPublicView(state: GameState, seat: Seat): PublicView {
     bid: state.bid,
     rangSuit: state.rangRevealed || isBidder ? state.rangSuit : null,
     hiddenCard: isBidder ? state.hiddenCard : null,
+    rangCard: state.rangRevealed || isBidder ? state.rangCard : null,
     rangRevealed: state.rangRevealed,
     currentTrick: state.currentTrick,
     completedTricks: state.completedTricks,
