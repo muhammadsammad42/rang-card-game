@@ -121,6 +121,8 @@ export interface GameState {
   // ---- the Rang (hidden trump) ----
   /** The face-down card. Secret: only the bidder may know it until revealed. */
   hiddenCard: Card | null;
+  /** The card the bidder placed face down (kept after the reveal for the UI). Secret until revealed. */
+  rangCard: Card | null;
   /** The Rang suit. Secret until revealed (except to the bidder). */
   rangSuit: Suit | null;
   rangRevealed: boolean;
@@ -181,6 +183,8 @@ export interface PublicView {
   rangSuit: Suit | null;
   /** The face-down card: only the bidder sees it. */
   hiddenCard: Card | null;
+  /** The face-down card: visible to the bidder, and to everyone once revealed. */
+  rangCard: Card | null;
   rangRevealed: boolean;
   currentTrick: CurrentTrick;
   completedTricks: TrickRecord[];

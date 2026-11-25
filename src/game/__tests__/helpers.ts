@@ -51,6 +51,7 @@ export function playingFixture(o: FixtureOptions): GameState {
     bid: o.bid ?? 8,
     forcedBid: false,
     hiddenCard: o.hidden ? cardFromId(o.hidden) : null,
+    rangCard: o.hidden ? cardFromId(o.hidden) : null,
     rangSuit: o.rangSuit ?? 'S',
     rangRevealed: o.revealed ?? false,
     revealedAtTrick: o.revealed ? 1 : null,
