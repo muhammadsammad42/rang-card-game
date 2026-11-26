@@ -33,7 +33,7 @@ drawn entirely in code.
   menu and the result screen.
 - **Stability**: a global error boundary; every action is validated; pauses on app backgrounding and leaving
   the screen; timers are always cleaned up; works offline.
-- **Bonus — cloud history (Firebase Cloud Firestore)**:
+- **Bonus — cloud history (Firebase Cloud Firestore) — working and verified against the live database**:
   - Every finished hand is saved with a trick-by-trick log.
   - If saving fails, the hand goes to an offline queue that retries later.
   - A History screen with stats, pull-to-refresh, and loading, empty and error states.
@@ -54,7 +54,7 @@ drawn entirely in code.
 | Storage | `@react-native-async-storage/async-storage` |
 | Cloud | Firebase JS SDK (Cloud Firestore) |
 | Feedback | `expo-haptics` |
-| Tests | Jest (`jest-expo`) — 299 engine, bot and history tests |
+| Tests | Jest (`jest-expo`) — 299 offline engine, bot and history tests + 3 live Firestore tests |
 
 Everything runs in **Expo Go**; no development build or prebuild is needed.
 
@@ -71,15 +71,26 @@ the same Wi-Fi network; if they are not, use `npx expo start --tunnel`.
 Other commands:
 
 ```bash
-npm test             # run the Jest test suite
+npm test             # run the Jest test suite (offline; the live Firebase test is skipped)
 npm run typecheck    # TypeScript check (tsc --noEmit)
+npx expo lint        # ESLint (Expo config)
 npx expo-doctor      # dependency / config health check
+RUN_FIREBASE_IT=1 npx jest firebase.integration   # live Firestore round trip (needs .env; Git Bash/macOS/Linux)
 ```
 
-## Firebase setup (cloud history — optional)
+## Firebase setup (cloud history — bonus)
 
-The app works fully without Firebase: finished games are then kept in a local queue and shown on the History
-screen. To enable cloud history:
+**Status: working.** The app is connected to the Firebase project `rang-card-game-4c317`, using the
+`(default)` Cloud Firestore database. A live test (`src/services/__tests__/firebase.integration.test.ts`)
+proves the full round trip using the app's own code:
+- `saveHandResult` writes a document to `games`;
+- the History query (`fetchHistory`) and History Detail (`fetchGame`) load it back;
+- a game queued while offline is uploaded by `flushQueue`.
+
+**No composite index is needed**: History filters on one field (`deviceId ==`) and sorts on the device.
+
+The app also works fully without Firebase: finished games are then kept in a local queue and shown on the
+History screen. To set up your own project:
 
 1. Go to <https://console.firebase.google.com> → **Add project** (Google Analytics is not needed).
 2. In the project, open **Build → Firestore Database → Create database**. Choose a location and start in
@@ -98,8 +109,9 @@ screen. To enable cloud history:
    ```
 
 5. Restart the dev server with `npx expo start --clear`, so the new variables are picked up.
-6. Simple **development** security rules (Firestore → Rules). These let the app create and read game
-   documents but not change or delete them:
+6. **Publish these security rules** (Firestore → Rules → Publish). Do this before your demo: *test mode*
+   rules expire 30 days after the database was created, and after that every save fails (games would only
+   be queued). These rules let the app create and read game documents but not change or delete them:
 
    ```
    rules_version = '2';

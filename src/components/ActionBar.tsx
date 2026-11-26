@@ -33,12 +33,12 @@ export function ActionBar({ game, me, humanSeat, isMyTurn, status, streak, error
   const shake = useSharedValue(0);
   useEffect(() => {
     if (!error) return;
-    shake.value = withSequence(
+    shake.set(withSequence(
       withTiming(-8, { duration: 50 }),
       withTiming(8, { duration: 60 }),
       withTiming(-5, { duration: 60 }),
       withTiming(0, { duration: 50 }),
-    );
+    ));
   }, [error, shake]);
   const shakeStyle = useAnimatedStyle(() => ({ transform: [{ translateX: shake.value }] }));
 

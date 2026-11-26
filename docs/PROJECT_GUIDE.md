@@ -171,12 +171,26 @@ change, and the InfoStrip then shows "Result decided".
     AsyncStorage queue (`rang.pendingGames.v1`).
   - A small toast says it will sync later, and the result screen shows "Offline — will sync later".
   - `flushQueue()` retries on app start (`StartupSync` in `_layout.tsx`) and whenever History opens.
+  - If a retry is rejected, `flushQueue` checks whether the document already exists (a "timed out" save
+    may still have reached the server, and the create-only security rules reject an overwrite). If it
+    exists, the game counts as uploaded, so it can never stay stuck in the queue.
 - **Reading.** `fetchHistory()` queries `where('deviceId', '==', id)`. This is a single-field filter, so no
   composite index is needed. Results are sorted newest-first on the device and merged with games still in
   the queue (marked "not synced").
 - **History screen states:** loading (Lottie), empty, error with Retry, not configured, and pull-to-refresh.
   It also shows summary stats (games played, win %, average bid, times as bidder). Tapping a row opens
   `history/[id].tsx` with the full trick-by-trick log.
+- **Verified live** against the project `rang-card-game-4c317`, `(default)` database.
+  `src/services/__tests__/firebase.integration.test.ts` runs the app's own service code against the real
+  database and checks:
+  - the database id;
+  - save → History query → History Detail;
+  - that a queued offline game uploads.
+
+  Run it with `RUN_FIREBASE_IT=1 npx jest firebase.integration`. It is skipped in normal `npm test` runs, so
+  the suite still works offline.
+- **Config.** The keys live in `.env` (git-ignored). Expo inlines the `EXPO_PUBLIC_*` values into the bundle
+  at build time, so restart with `npx expo start --clear` after changing them.
 
 ## 7. How the Lottie animations are integrated
 
@@ -319,3 +333,18 @@ The engine and the tests read these constants, so changing one changes the behav
   finished trick is on display.
 - **Crashes**: a global ErrorBoundary covers the app, and a local one wraps each Lottie animation.
 - **Offline**: Firebase writes have timeouts and fall back to the local queue; History shows local games.
+
+## 11. React patterns worth explaining (lint-clean with `npx expo lint`)
+
+- **Per-hand state is keyed, not reset.** GameProvider stores values such as `{ key: handKey, count }` (the
+  acknowledged tricks), the sweep stage and the save status. When a new hand starts, the key no longer
+  matches, so the value reads as its default. No effect has to "reset" it, which avoids extra renders.
+- **Derived instead of synced.** These are computed during render rather than copied into state by an effect:
+  - the illegal-move message (tied to the exact `GameState` it describes, so it disappears when the game moves on);
+  - the trick on display;
+  - the selected card in `game.tsx` (keyed to the hand);
+  - whether the sparkle or burst Lottie should play.
+- **Latest-value refs** (`gameRef`, `pausedRef`, …) are updated in `useLayoutEffect`, never during render.
+  Timers and tap handlers read them to get the current state without re-subscribing.
+- **Reanimated shared values** are written with `.set(...)` from JavaScript (effects and handlers) and read
+  with `.value` inside worklets (`useAnimatedStyle`, gesture callbacks).

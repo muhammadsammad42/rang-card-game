@@ -176,6 +176,17 @@ export async function saveHandResult(game: GameState, players: PlayerProfile[], 
   }
 }
 
+/** True if a game document with this id is already in Firestore (false on any error). */
+async function existsInCloud(id: string): Promise<boolean> {
+  const db = getDb();
+  if (!db) return false;
+  try {
+    return (await withTimeout(getDoc(doc(db, COLLECTION, id)))).exists();
+  } catch {
+    return false;
+  }
+}
+
 /** Retries every queued game. Returns how many were uploaded. Safe to call any time. */
 let flushing: Promise<number> | null = null;
 export function flushQueue(): Promise<number> {
@@ -190,7 +201,11 @@ export function flushQueue(): Promise<number> {
         await upload(item.id, item.record);
         uploaded++;
       } catch {
-        remaining.push(item);
+        // A save that "timed out" may still have reached the server. If the
+        // document already exists, the security rules reject the overwrite —
+        // so check for it before keeping the game in the queue.
+        if (await existsInCloud(item.id)) uploaded++;
+        else remaining.push(item);
       }
     }
     // Keep anything queued while we were uploading.

@@ -75,7 +75,7 @@ function TrickCard({
 
   const fly = useSharedValue(0);
   useEffect(() => {
-    fly.value = withTiming(1, { duration: 340, easing: Easing.out(Easing.cubic) });
+    fly.set(withTiming(1, { duration: 340, easing: Easing.out(Easing.cubic) }));
   }, [fly]);
 
   const style = useAnimatedStyle(() => {
@@ -108,7 +108,7 @@ function TrickCard({
 function TrickAreaBase({ plays, size, cardWidth, stage, winner, sweepTo }: Props) {
   const sweep = useSharedValue(0);
   useEffect(() => {
-    sweep.value = stage === 'sweep' ? withTiming(1, { duration: 400, easing: Easing.in(Easing.cubic) }) : 0;
+    sweep.set(stage === 'sweep' ? withTiming(1, { duration: 400, easing: Easing.in(Easing.cubic) }) : 0);
   }, [stage, sweep]);
 
   return (

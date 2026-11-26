@@ -22,17 +22,14 @@ interface Props {
 }
 
 function MiddlePileBase({ count, cardWidth, collectSeq, visible }: Props) {
-  const [sparkleKey, setSparkleKey] = useState(0);
+  /** The collection whose sparkle has finished. Starts at the current value so remounting never replays it. */
+  const [sparkleDone, setSparkleDone] = useState(collectSeq);
+  const showSparkle = collectSeq > 0 && collectSeq !== sparkleDone;
   const bump = useSharedValue(1);
-
-  useEffect(() => {
-    if (collectSeq === 0) return;
-    setSparkleKey(collectSeq);
-  }, [collectSeq]);
 
   // A small bounce each time the pile grows.
   useEffect(() => {
-    if (count > 0) bump.value = withSequence(withTiming(1.15, { duration: 120 }), withSpring(1));
+    if (count > 0) bump.set(withSequence(withTiming(1.15, { duration: 120 }), withSpring(1)));
   }, [count, bump]);
   const bumpStyle = useAnimatedStyle(() => ({ transform: [{ scale: bump.value }] }));
 
@@ -66,15 +63,15 @@ function MiddlePileBase({ count, cardWidth, collectSeq, visible }: Props) {
           <Text style={[typography.label, { color: colors.textOnGold }]}>{count}</Text>
         </View>
       )}
-      {sparkleKey > 0 && (
+      {showSparkle && (
         <View pointerEvents="none" style={[StyleSheet.absoluteFill, styles.sparkleWrap]}>
           <LottieAnim
-            key={sparkleKey}
+            key={collectSeq}
             name="sparkle"
             loop={false}
             speed={1.6}
             style={{ width: w * 3.2, height: w * 3.2 }}
-            onFinish={() => setSparkleKey(0)}
+            onFinish={() => setSparkleDone(collectSeq)}
           />
         </View>
       )}

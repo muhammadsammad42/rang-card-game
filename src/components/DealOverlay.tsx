@@ -39,7 +39,7 @@ const FlyingCard = memo(function FlyingCard({
 }) {
   const t = useSharedValue(0);
   useEffect(() => {
-    t.value = withDelay(delay, withTiming(1, { duration: 360, easing: Easing.out(Easing.quad) }));
+    t.set(withDelay(delay, withTiming(1, { duration: 360, easing: Easing.out(Easing.quad) })));
   }, [t, delay]);
   const style = useAnimatedStyle(() => ({
     opacity: t.value === 0 ? 0 : t.value < 0.85 ? 1 : (1 - t.value) / 0.15,
