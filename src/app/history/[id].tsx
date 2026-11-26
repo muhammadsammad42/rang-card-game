@@ -139,6 +139,11 @@ export default function HistoryDetailScreen() {
                   {game.revealedAtTrick ? `Trick ${game.revealedAtTrick} by ${game.revealedByName ?? '—'}` : 'Never'}
                 </Text>
               </Row>
+              {game.mode === 'online' && (
+                <Row label="Mode">
+                  <Text style={styles.value}>Online · room {game.roomCode}</Text>
+                </Row>
+              )}
               <Row label="Dealer">
                 <Text style={styles.value}>{name(game.dealerSeat)}</Text>
               </Row>
@@ -146,6 +151,23 @@ export default function HistoryDetailScreen() {
                 <Text style={[styles.value, { color: game.winnerTeam === 'A' ? colors.teamA : colors.teamB }]}>{teamLabel(game.winnerTeam)}</Text>
               </Row>
             </GlassPanel>
+
+            {game.playerNames?.length === 4 && (
+              <GlassPanel style={{ gap: spacing.xs }}>
+                <Text style={[typography.micro, { color: colors.gold }]}>Players</Text>
+                {game.playerNames.map((n, seat) => (
+                  <View key={seat} style={styles.row}>
+                    <Text style={[typography.label, { color: seat % 2 === 0 ? colors.teamA : colors.teamB }]}>
+                      {seat === 0 ? 'You' : seat === 2 ? 'Partner' : 'Opponent'}
+                    </Text>
+                    <Text style={styles.value}>
+                      {n}
+                      {game.botSeats?.includes(seat) ? ' (bot)' : ''}
+                    </Text>
+                  </View>
+                ))}
+              </GlassPanel>
+            )}
 
             <Text style={[typography.micro, { color: colors.gold, marginTop: spacing.sm }]}>Trick by trick</Text>
             {(game.trickLog ?? []).map((t) => {
