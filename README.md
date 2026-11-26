@@ -54,7 +54,7 @@ drawn entirely in code.
 | Storage | `@react-native-async-storage/async-storage` |
 | Cloud | Firebase JS SDK (Cloud Firestore) |
 | Feedback | `expo-haptics` |
-| Tests | Jest (`jest-expo`) — 296 engine and bot tests |
+| Tests | Jest (`jest-expo`) — 299 engine, bot and history tests |
 
 Everything runs in **Expo Go**; no development build or prebuild is needed.
 
