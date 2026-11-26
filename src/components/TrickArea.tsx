@@ -2,22 +2,28 @@
  * TrickArea.tsx — the centre of the table where the current trick is played.
  *
  * Each card flies in from its player's side (Reanimated). When a trick is
- * complete it stays for a moment with the winning card glowing ('hold'),
- * then all four cards sweep towards the winner — or into the middle pile
- * after the Rang has been revealed ('sweep').
+ * complete it stays for a moment with the winning card glowing, popping up
+ * and tagged "Winner" ('hold'), then all four cards sweep towards the
+ * winner's side of the table — or into the middle pile after the Rang has
+ * been revealed ('sweep'). The Table plays a small Lottie sparkle where a
+ * trick is collected. Durations drop to 0 with "Reduce animations".
  */
 import { memo, useEffect } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import Animated, {
   Easing,
   SharedValue,
   useAnimatedStyle,
   useSharedValue,
+  withSequence,
+  withSpring,
   withTiming,
 } from 'react-native-reanimated';
 
 import type { Play, Seat } from '@/game/types';
 import { CARD_RATIO } from '@/hooks/useLayout';
+import { useMotion } from '@/hooks/useMotion';
+import { colors, radii, typography } from '@/theme/theme';
 
 import { PlayingCard } from './PlayingCard';
 
@@ -53,6 +59,7 @@ function TrickCard({
   sweep,
   sweepTo,
   glowing,
+  reduced,
 }: {
   play: Play;
   size: number;
@@ -60,6 +67,7 @@ function TrickCard({
   sweep: SharedValue<number>;
   sweepTo: Seat | 'pile' | null;
   glowing: boolean;
+  reduced: boolean;
 }) {
   const cardHeight = cardWidth * CARD_RATIO;
   const dir = DIRECTION[play.seat];
@@ -73,10 +81,21 @@ function TrickCard({
         ? { x: DIRECTION[sweepTo].x * size * 0.9, y: DIRECTION[sweepTo].y * size * 0.9 }
         : rest;
 
-  const fly = useSharedValue(0);
+  const fly = useSharedValue(reduced ? 1 : 0);
   useEffect(() => {
-    fly.set(withTiming(1, { duration: 340, easing: Easing.out(Easing.cubic) }));
+    if (!reduced) fly.set(withTiming(1, { duration: 340, easing: Easing.out(Easing.cubic) }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fly]);
+
+  // The winning card pops up briefly when the trick is complete.
+  const win = useSharedValue(0);
+  useEffect(() => {
+    if (!glowing) {
+      win.set(0);
+      return;
+    }
+    win.set(reduced ? 1 : withSequence(withTiming(1.35, { duration: 160 }), withSpring(1, { damping: 10, stiffness: 200 })));
+  }, [glowing, reduced, win]);
 
   const style = useAnimatedStyle(() => {
     const x = start.x + (rest.x - start.x) * fly.value;
@@ -88,10 +107,11 @@ function TrickCard({
         { translateX: x + (target.x - x) * s },
         { translateY: y + (target.y - y) * s },
         { rotate: `${TILT[play.seat] * fly.value + (1 - fly.value) * dir.x * 25}deg` },
-        { scale: (0.75 + 0.25 * fly.value) * (1 - s * 0.55) },
+        { scale: (0.75 + 0.25 * fly.value) * (1 - s * 0.55) * (1 + win.value * 0.1) },
       ],
     };
   });
+  const tagStyle = useAnimatedStyle(() => ({ opacity: Math.min(1, win.value) * (1 - sweep.value) }));
 
   return (
     <Animated.View
@@ -101,15 +121,23 @@ function TrickCard({
         style,
       ]}>
       <PlayingCard card={play.card} width={cardWidth} highlighted={glowing} />
+      {glowing && (
+        <Animated.View style={[styles.tag, tagStyle]}>
+          <Text allowFontScaling={false} style={[typography.micro, { color: colors.textOnGold, fontSize: 9 }]}>
+            Winner
+          </Text>
+        </Animated.View>
+      )}
     </Animated.View>
   );
 }
 
 function TrickAreaBase({ plays, size, cardWidth, stage, winner, sweepTo }: Props) {
+  const { reduced } = useMotion();
   const sweep = useSharedValue(0);
   useEffect(() => {
-    sweep.set(stage === 'sweep' ? withTiming(1, { duration: 400, easing: Easing.in(Easing.cubic) }) : 0);
-  }, [stage, sweep]);
+    sweep.set(stage === 'sweep' ? withTiming(1, { duration: reduced ? 0 : 400, easing: Easing.in(Easing.cubic) }) : 0);
+  }, [stage, sweep, reduced]);
 
   return (
     <View style={{ width: size, height: size }} pointerEvents="none" accessibilityLabel="Cards played in this trick">
@@ -122,6 +150,7 @@ function TrickAreaBase({ plays, size, cardWidth, stage, winner, sweepTo }: Props
           sweep={sweep}
           sweepTo={sweepTo}
           glowing={stage !== 'live' && play.seat === winner}
+          reduced={reduced}
         />
       ))}
     </View>
@@ -132,4 +161,13 @@ export const TrickArea = memo(TrickAreaBase);
 
 const styles = StyleSheet.create({
   card: { position: 'absolute' },
+  tag: {
+    position: 'absolute',
+    top: -9,
+    alignSelf: 'center',
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: radii.pill,
+    backgroundColor: colors.accent,
+  },
 });

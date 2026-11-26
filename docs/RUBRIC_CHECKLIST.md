@@ -29,16 +29,25 @@ Each rubric criterion mapped to the features and files that satisfy it.
 | Original "Midnight Lounge" identity: tokens in one file | `src/theme/theme.ts` |
 | Cards drawn in code (faces, court monograms, backs), original app icon | `PlayingCard.tsx`, `SuitIcon.tsx`, `assets/images/*` |
 | Home (logo, Lottie, New Game / Continue / History / Settings, stats) | `src/app/index.tsx` |
-| Table: seats with avatar, name, team colour, card count, dealer chip, bidder crown, turn glow | `Table.tsx`, `Seat.tsx` |
-| Fanned hand, legal highlighted, illegal dimmed, tap or swipe to play | `Hand.tsx`, `src/app/game.tsx` |
-| Badges: bid, Rang status (lock / suit), tricks vs. needed, match score | `ScoreBoard.tsx` |
-| Middle pile + streak text; last-trick peek | `MiddlePile.tsx`, `utils/status.ts`, `LastTrickModal.tsx` |
-| Reveal Rang button only when legal | `ActionBar.tsx` (`canReveal` from `rules.revealError`) |
-| Bidding panel, Choose-Rang modal, result screen, pause menu with confirmations | `BiddingPanel.tsx`, `RangPicker.tsx`, `ResultModal.tsx`, `PauseMenu.tsx`, `ConfirmDialog.tsx` |
+| Felt table: gradient + SVG texture + vignette + trick ring | `Table.tsx` (`FeltDecor`) |
+| Seat panels: avatar, team ring, mini card stack + count, dealer chip, bidder crown, animated turn ring, bot "thinking…" dots | `Seat.tsx` |
+| Hand: all 13 cards always fully on screen (fit-to-width fan, corners readable), sort by suit / rank | `Hand.tsx`, `utils/handView.ts` (`fanLayout`, `sortForDisplay`), Sort chip in `ActionBar.tsx` |
+| **Playable-card highlighting**: engine legal cards → `isPlayable` → glow + lift / dim + lower / neutral when not your turn | `utils/handView.ts` (`buildHandView`), `hooks/useHandController.ts`, `Hand.tsx` — explained in PROJECT_GUIDE §13 |
+| Illegal tap: card shake + error haptic + "You must follow ♦ Diamonds" | `Hand.tsx`, `illegalMessage`, `ActionBar.tsx` |
+| Tap to select (lift + grow), tap again or **drag to the glowing drop zone** to play; snaps back outside | `Hand.tsx`, `DropZone.tsx` |
+| Trick: fly-in, winner pop + "Winner" tag, sweep to the winner / pile, Lottie sparkle on collection | `TrickArea.tsx`, `Table.tsx` |
+| HUD: hand number, Us / Them chips, bid chip, Rang badge (lock flips to suit), team progress bars, "result decided" | `ScoreBoard.tsx` |
+| Middle pile + streak chip; "Last" trick bottom sheet | `MiddlePile.tsx`, `Table.tsx`, `utils/status.ts` (`streakChip`), `LastTrickModal.tsx` |
+| Status bar with icons ("Your turn: follow ♣ Clubs", "Waiting for Noor…", "Sana wins trick 4") | `utils/status.ts` (`statusInfo` tones), `ActionBar.tsx` |
+| Reveal Rang only when legal; pulses with a tip when you can't follow suit | `ActionBar.tsx` (`canReveal` from `rules.revealError`) |
+| Bidding panel (large chips 8–13 with locked states, card fan, calls pop in), Choose-Rang modal, result screen (big Lottie, count-up totals), pause menu with confirmations | `BiddingPanel.tsx`, `RangPicker.tsx`, `ResultModal.tsx`, `PauseMenu.tsx`, `ConfirmDialog.tsx` |
+| Micro-interactions: press-scale + haptic on every button / chip / row | `PressableScale.tsx` (used by `AppButton`, `IconButton`, bid chips, `Segmented`, `ScreenHeader`, history rows) |
+| "Reduce animations" option (also follows the phone setting) | `app/settings.tsx`, `hooks/useMotion.ts` |
+| Before / after screenshots | `docs/screenshots/` |
 | Lottie animations (LottieFiles) | `theme/animations.ts`, `LottieAnim.tsx`, `assets/lottie/` |
-| Reanimated: deal, lift, fly-in, sweep, flip, pulse, shake, press, fades | `DealOverlay`, `Hand`, `TrickArea`, `RangSlot`, `Seat`, `ActionBar`, `AppButton`, `FadeInView` |
-| Haptics on play, invalid move, reveal, collect, win | `hooks/useFeedback.ts`, `GameProvider.tsx` |
-| Accessibility: labels on cards and buttons, live regions, contrast | all components (`accessibilityLabel`, `accessibilityRole`) |
+| Reanimated: deal, lift, glow pulse, drag, fly-in, winner pop, sweep, flip, turn ring, thinking dots, progress bars, shake, press, fades | `DealOverlay`, `Hand`, `DropZone`, `TrickArea`, `RangSlot`, `Seat`, `ScoreBoard`, `ActionBar`, `PressableScale`, `FadeInView` |
+| Haptics on select, play, button press, invalid move, reveal, collect, win | `hooks/useFeedback.ts`, `PressableScale.tsx`, `useHandController.ts`, `GameProvider.tsx` |
+| Accessibility: every card labelled "Eight of Diamonds, playable" / "not playable", buttons labelled, live regions, text-style suit glyphs for contrast | `utils/handView.ts` (`cardA11yLabel`, `suitText`), all components |
 | Responsive: no fixed sizes, safe areas, tablet max width | `hooks/useLayout.ts`, `Table.tsx` (onLayout) |
 
 ## 3. React Native implementation — 15
@@ -49,8 +58,11 @@ Each rubric criterion mapped to the features and files that satisfy it.
 | Expo Router navigation (Stack, dynamic route `history/[id]`) | `src/app/_layout.tsx`, `src/app/history/[id].tsx` |
 | Native-compatible packages installed with `npx expo install` | `package.json` |
 | `lottie-react-native` in package.json | `package.json` |
-| Gesture Handler 3 hooks + worklets (`scheduleOnRN`) | `Hand.tsx` |
-| Reanimated shared values and animated styles | see the UI table above |
+| Gesture Handler 3 hooks + worklets (`scheduleOnRN`): competing tap + pan, gestures enabled only on your turn | `Hand.tsx` |
+| UI-thread hit testing with Reanimated `measure()` + `useAnimatedRef` (drag-to-play) | `Hand.tsx`, `DropZone.tsx`, `app/game.tsx` |
+| Reanimated shared values and animated styles; one shared value drives all glows; shared `dragState` between components without React state | see the UI table above |
+| Performance: memoised cards + stable callbacks (latest-value ref), memoised SVG felt, no re-renders during drags | `Hand.tsx`, `hooks/useHandController.ts`, `Table.tsx` |
+| Shared hooks for offline and online play | `hooks/useHandController.ts`, `hooks/useMotion.ts` |
 | SVG, LinearGradient, safe areas, AsyncStorage, Haptics | various |
 | Clean structure, every file commented | `docs/PROJECT_GUIDE.md` §9 |
 
@@ -64,7 +76,7 @@ Each rubric criterion mapped to the features and files that satisfy it.
 | Explicit state machine | `types.ts` `Phase`; `docs/PROJECT_GUIDE.md` §2 |
 | Bots only see `PublicView` (no cheating) | `engine.getPublicView`, `ai.ts` |
 | Bot scheduler with cancellable timers; double-tap / stale-action guards | `GameProvider.tsx` |
-| 318 offline Jest tests (incl. 19 online-layer tests with a fake Firestore) + 3 live Firestore tests | `src/game/__tests__/`, `src/services/__tests__/` |
+| 352 offline Jest tests (incl. 19 online-layer tests with a fake Firestore and 34 UI-helper tests for highlighting, sorting and the hand fan) + 3 live Firestore tests | `src/game/__tests__/`, `src/services/__tests__/`, `src/online/__tests__/`, `src/utils/__tests__/` |
 
 ## 5. Error handling & stability — 5
 

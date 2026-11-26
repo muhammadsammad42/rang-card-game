@@ -1,20 +1,23 @@
 /**
  * useFeedback.ts — haptic feedback that respects the Settings toggle.
  * Haptics calls are fire-and-forget; failures (e.g. unsupported device) are ignored.
+ * Works outside <SettingsProvider> too (haptics then default to on), so shared
+ * components such as AppButton can use it on the crash screen.
  */
 import * as Haptics from 'expo-haptics';
 import { useMemo } from 'react';
 
-import { useSettings } from '@/context/SettingsProvider';
+import { useOptionalSettings } from '@/context/SettingsProvider';
 
 export function useFeedback() {
-  const { settings } = useSettings();
+  const on = useOptionalSettings()?.settings.haptics ?? true;
   return useMemo(() => {
-    const on = settings.haptics;
     const safe = (p: Promise<void>) => p.catch(() => undefined);
     return {
       /** Light tap: selecting a card, pressing a button. */
       tap: () => on && safe(Haptics.selectionAsync()),
+      /** Soft impact: a button press (lighter than playing a card). */
+      press: () => on && safe(Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light)),
       /** Medium impact: playing a card. */
       play: () => on && safe(Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium)),
       /** Error buzz: invalid move. */
@@ -24,5 +27,5 @@ export function useFeedback() {
       /** Warning: Rang revealed. */
       warning: () => on && safe(Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning)),
     };
-  }, [settings.haptics]);
+  }, [on]);
 }

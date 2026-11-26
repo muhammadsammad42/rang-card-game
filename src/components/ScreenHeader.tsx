@@ -5,21 +5,23 @@
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { ReactNode } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { colors, spacing, typography } from '@/theme/theme';
+
+import { PressableScale } from './PressableScale';
 
 export function ScreenHeader({ title, right }: { title: string; right?: ReactNode }) {
   return (
     <View style={styles.header}>
-      <Pressable
+      <PressableScale
         onPress={() => (router.canGoBack() ? router.back() : router.replace('/'))}
-        accessibilityRole="button"
+        haptic="tap"
         accessibilityLabel="Back"
         hitSlop={10}
-        style={({ pressed }) => [styles.back, pressed && { opacity: 0.6 }]}>
+        contentStyle={styles.back}>
         <MaterialCommunityIcons name="chevron-left" size={26} color={colors.goldLight} />
-      </Pressable>
+      </PressableScale>
       <Text style={[typography.title, styles.title]} accessibilityRole="header" numberOfLines={1}>
         {title}
       </Text>

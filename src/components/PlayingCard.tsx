@@ -190,5 +190,5 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     transform: [{ rotate: '45deg' }],
   },
-  dim: { backgroundColor: 'rgba(6,10,19,0.55)' },
+  dim: { backgroundColor: colors.cardDim },
 });

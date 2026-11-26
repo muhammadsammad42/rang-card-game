@@ -1,6 +1,6 @@
 /**
  * SettingsProvider.tsx — user preferences (name, bot difficulty, bot speed,
- * haptics) and local stats, persisted in AsyncStorage and shared via Context.
+ * haptics, reduce animations, hand sort order) and local stats, persisted in AsyncStorage and shared via Context.
  */
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
@@ -8,12 +8,17 @@ import { EMPTY_STATS, KEYS, LocalStats, readJSON, writeJSON } from '@/services/s
 
 export type Difficulty = 'easy' | 'normal';
 export type BotSpeed = 'slow' | 'normal' | 'fast';
+/** How the human's hand is ordered on screen. */
+export type HandSort = 'suit' | 'rank';
 
 export interface Settings {
   playerName: string;
   difficulty: Difficulty;
   botSpeed: BotSpeed;
   haptics: boolean;
+  /** Shorter / fewer animations (also on automatically when the OS "Remove animations" setting is on). */
+  reduceMotion: boolean;
+  handSort: HandSort;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -21,6 +26,8 @@ export const DEFAULT_SETTINGS: Settings = {
   difficulty: 'normal',
   botSpeed: 'normal',
   haptics: true,
+  reduceMotion: false,
+  handSort: 'suit',
 };
 
 /** Bot "thinking" delay range per speed setting, in milliseconds. */
@@ -52,7 +59,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     let alive = true;
     Promise.all([readJSON(KEYS.settings, DEFAULT_SETTINGS), readJSON(KEYS.stats, EMPTY_STATS)]).then(([s, st]) => {
       if (!alive) return;
-      setSettings(s);
+      // Merge with the defaults so settings saved by an older version gain the new keys.
+      setSettings({ ...DEFAULT_SETTINGS, ...s });
       setStats(st);
       setLoaded(true);
     });
@@ -92,6 +100,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
     [settings, loaded, update, stats, recordHand, resetStats],
   );
   return <SettingsContext.Provider value={value}>{children}</SettingsContext.Provider>;
+}
+
+/** Like useSettings, but returns null outside the provider (e.g. the crash screen) instead of throwing. */
+export function useOptionalSettings(): SettingsContextValue | null {
+  return useContext(SettingsContext);
 }
 
 export function useSettings(): SettingsContextValue {
