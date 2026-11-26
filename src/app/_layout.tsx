@@ -9,14 +9,15 @@
  */
 import { DarkTheme, router, Stack, ThemeProvider } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { ErrorBoundary } from '@/components/ErrorBoundary';
-import { ToastProvider } from '@/components/Toast';
+import { ToastProvider, useToast } from '@/components/Toast';
 import { GameProvider } from '@/context/GameProvider';
 import { SettingsProvider } from '@/context/SettingsProvider';
+import { flushQueue } from '@/services/historyService';
 import { colors } from '@/theme/theme';
 
 /** React Navigation theme tuned to the Midnight Lounge palette. */
@@ -31,6 +32,19 @@ const navTheme = {
     border: colors.hairline,
   },
 };
+
+/** On app start, retry uploading any games saved while offline (non-blocking). */
+function StartupSync() {
+  const toast = useToast();
+  useEffect(() => {
+    flushQueue()
+      .then((n) => {
+        if (n > 0) toast.show(`Synced ${n} saved game${n === 1 ? '' : 's'} to the cloud`, 'success');
+      })
+      .catch(() => undefined);
+  }, [toast]);
+  return null;
+}
 
 export default function RootLayout() {
   // Changing the key remounts every provider, giving a clean slate after a crash.
@@ -52,6 +66,7 @@ export default function RootLayout() {
             }}>
             <SettingsProvider key={resetKey}>
               <ToastProvider>
+                <StartupSync />
                 <GameProvider>
                   <Stack
                     screenOptions={{

@@ -34,9 +34,11 @@ interface Props {
   tag?: string;
   /** Avatar + badges only (no name/count rows) — used for the human's mini seat. */
   minimal?: boolean;
+  /** Which side the bid bubble sits on (East uses 'left' so it stays on the table). */
+  bubbleSide?: 'left' | 'right';
 }
 
-function SeatBase({ player, size, isTurn, isDealer, isBidder, cardCount, bubble, tag, minimal }: Props) {
+function SeatBase({ player, size, isTurn, isDealer, isBidder, cardCount, bubble, tag, minimal, bubbleSide = 'right' }: Props) {
   const pulse = useSharedValue(0);
 
   // Turn indicator: a gold halo that breathes while it's this player's turn.
@@ -83,7 +85,7 @@ function SeatBase({ player, size, isTurn, isDealer, isBidder, cardCount, bubble,
           </View>
         )}
         {bubble ? (
-          <View style={[styles.bubble, bubble === 'Pass' && styles.bubblePass]}>
+          <View style={[styles.bubble, bubbleSide === 'left' ? { left: -30 } : { right: -26 }, bubble === 'Pass' && styles.bubblePass]}>
             <Text style={[typography.label, { color: bubble === 'Pass' ? colors.textMuted : colors.textOnGold }]}>{bubble}</Text>
           </View>
         ) : null}
@@ -127,7 +129,6 @@ const styles = StyleSheet.create({
   bubble: {
     position: 'absolute',
     top: -6,
-    right: -26,
     backgroundColor: colors.gold,
     paddingHorizontal: spacing.sm,
     paddingVertical: 2,

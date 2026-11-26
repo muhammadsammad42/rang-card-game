@@ -5,10 +5,10 @@
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeInDown, FadeInUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
+import { FadeInView } from '@/components/FadeInView';
 import { GlassPanel } from '@/components/GlassPanel';
 import { LottieAnim } from '@/components/LottieAnim';
 import { SuitIcon } from '@/components/SuitIcon';
@@ -49,7 +49,7 @@ export default function HomeScreen() {
           { paddingTop: insets.top + spacing.xl, paddingBottom: insets.bottom + spacing.xl, width: contentWidth },
         ]}
         showsVerticalScrollIndicator={false}>
-        <Animated.View entering={FadeInDown.duration(500)} style={styles.hero}>
+        <FadeInView from="down" duration={500} style={styles.hero}>
           <LottieAnim name="homeCards" style={{ width: animSize, height: animSize * 0.74 }} />
           <View style={styles.suits}>
             {(['S', 'H', 'C', 'D'] as const).map((s) => (
@@ -60,9 +60,9 @@ export default function HomeScreen() {
             RANG
           </Text>
           <Text style={[typography.body, styles.tagline]}>The hidden-trump card game for four</Text>
-        </Animated.View>
+        </FadeInView>
 
-        <Animated.View entering={FadeInUp.delay(150).duration(450)} style={styles.buttons}>
+        <FadeInView from="up" delay={150} duration={450} style={styles.buttons}>
           {game && game.phase !== 'HAND_OVER' ? (
             <>
               <AppButton label={`Continue · Hand ${game.handNumber}`} icon="play" size="lg" onPress={() => router.push('/game')} />
@@ -80,9 +80,9 @@ export default function HomeScreen() {
             <AppButton label="History" icon="history" variant="secondary" onPress={() => router.push('/history')} style={styles.flex} />
             <AppButton label="Settings" icon="cog-outline" variant="secondary" onPress={() => router.push('/settings')} style={styles.flex} />
           </View>
-        </Animated.View>
+        </FadeInView>
 
-        <Animated.View entering={FadeInUp.delay(300).duration(450)}>
+        <FadeInView from="up" delay={300} duration={450}>
           <GlassPanel style={styles.stats}>
             <Text style={[typography.micro, { color: colors.gold }]}>Your table record</Text>
             <View style={styles.statRow}>
@@ -95,7 +95,7 @@ export default function HomeScreen() {
               Playing as {settings.playerName} · {settings.difficulty === 'easy' ? 'Easy' : 'Normal'} bots
             </Text>
           </GlassPanel>
-        </Animated.View>
+        </FadeInView>
       </ScrollView>
     </LinearGradient>
   );

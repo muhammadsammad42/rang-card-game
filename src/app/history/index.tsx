@@ -11,10 +11,10 @@ import { router, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useRef, useState } from 'react';
 import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeInDown } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
+import { FadeInView } from '@/components/FadeInView';
 import { GlassPanel } from '@/components/GlassPanel';
 import { LottieAnim } from '@/components/LottieAnim';
 import { ScreenHeader } from '@/components/ScreenHeader';
@@ -39,7 +39,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 function GameRow({ item, index }: { item: HistoryItem; index: number }) {
   const label = `${item.humanWon ? 'Won' : 'Lost'}. ${formatDate(item.createdAt)}. Bid ${item.bid} by ${item.bidderName}. Rang ${SUIT_NAMES[item.rangSuit]}. Tricks ${item.tricksWon.teamA} to ${item.tricksWon.teamB}.`;
   return (
-    <Animated.View entering={FadeInDown.delay(Math.min(index, 8) * 40).duration(260)}>
+    <FadeInView from="up" distance={12} delay={Math.min(index, 8) * 40}>
       <Pressable
         onPress={() => router.push({ pathname: '/history/[id]', params: { id: item.id } })}
         accessibilityRole="button"
@@ -65,7 +65,7 @@ function GameRow({ item, index }: { item: HistoryItem; index: number }) {
           <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textDim} />
         </View>
       </Pressable>
-    </Animated.View>
+    </FadeInView>
   );
 }
 

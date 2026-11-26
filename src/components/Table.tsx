@@ -109,7 +109,7 @@ export function Table({ game, players, humanSeat, shownTrick, events, seatSize, 
               <Seat {...seatProps(1)} />
             </View>
             <View style={[styles.abs, { right: 8, top: centerY - seatH / 2 }]}>
-              <Seat {...seatProps(3)} />
+              <Seat {...seatProps(3)} bubbleSide="left" />
             </View>
 
             <View style={[styles.abs, { left: spacing.md, top: spacing.md }]}>
