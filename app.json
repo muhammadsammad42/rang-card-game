@@ -8,7 +8,8 @@
     "scheme": "rang",
     "userInterfaceStyle": "dark",
     "ios": {
-      "icon": "./assets/expo.icon"
+      "icon": "./assets/images/icon.png",
+      "supportsTablet": true
     },
     "android": {
       "adaptiveIcon": {
@@ -30,7 +31,7 @@
         {
           "backgroundColor": "#060A13",
           "image": "./assets/images/splash-icon.png",
-          "imageWidth": 76
+          "imageWidth": 200
         }
       ]
     ],

@@ -5,10 +5,11 @@
  */
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import { StyleSheet, Text } from 'react-native';
-import Animated, { FadeInUp, FadeOutUp } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { colors, radii, shadows, spacing, typography } from '@/theme/theme';
+
+import { FadeInView } from './FadeInView';
 
 export type ToastKind = 'info' | 'success' | 'warning' | 'error';
 interface ToastItem {
@@ -46,15 +47,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     <ToastContext.Provider value={value}>
       {children}
       {toast && (
-        <Animated.View
+        <FadeInView
           key={toast.id}
-          entering={FadeInUp.duration(220)}
-          exiting={FadeOutUp.duration(200)}
+          from="down"
+          duration={220}
           pointerEvents="none"
-          accessibilityLiveRegion="polite"
           style={[styles.toast, { top: insets.top + spacing.sm, borderLeftColor: ACCENT[toast.kind] }]}>
-          <Text style={[typography.label, { color: colors.ivory }]}>{toast.message}</Text>
-        </Animated.View>
+          <Text accessibilityLiveRegion="polite" style={[typography.label, { color: colors.ivory }]}>
+            {toast.message}
+          </Text>
+        </FadeInView>
       )}
     </ToastContext.Provider>
   );

@@ -83,7 +83,13 @@ export function InfoStrip({ game, players, humanSeat }: { game: GameState; playe
         <Chip label={bidder !== null ? `Bid ${game.bid} by ${players[bidder].name}` : 'No bid yet'} accent={colors.goldDeep}>
           <MaterialCommunityIcons name="crown" size={14} color={colors.goldLight} />
           <Text style={[typography.label, styles.chipText]} numberOfLines={1}>
-            {bidder !== null ? `${players[bidder].name} · ${game.bid}` : game.highestBid ? `High ${game.highestBid.value}` : 'Bidding'}
+            {bidder !== null
+              ? `${players[bidder].name} · ${game.bid}`
+              : game.highestBid
+                ? `High ${game.highestBid.value}`
+                : game.phase === 'DEAL_5'
+                  ? 'Dealing'
+                  : 'Bidding'}
           </Text>
         </Chip>
 

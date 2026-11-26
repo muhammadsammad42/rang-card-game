@@ -7,13 +7,14 @@
  */
 import { useEffect } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
-import Animated, { FadeIn, useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
+import Animated, { useAnimatedStyle, useSharedValue, withSequence, withTiming } from 'react-native-reanimated';
 
 import type { PlayerProfile } from '@/game/players';
 import type { GameState, Seat as SeatId } from '@/game/types';
 import { colors, radii, spacing, typography } from '@/theme/theme';
 
 import { AppButton } from './AppButton';
+import { FadeInView } from './FadeInView';
 import { Seat } from './Seat';
 
 interface Props {
@@ -71,7 +72,7 @@ export function ActionBar({ game, me, humanSeat, isMyTurn, status, streak, error
         )}
       </View>
       {canReveal && (
-        <Animated.View entering={FadeIn}>
+        <FadeInView from="zoom">
           <AppButton
             label="Reveal Rang"
             icon="eye-outline"
@@ -79,7 +80,7 @@ export function ActionBar({ game, me, humanSeat, isMyTurn, status, streak, error
             onPress={onReveal}
             accessibilityHint="Turns over the hidden trump card for everyone"
           />
-        </Animated.View>
+        </FadeInView>
       )}
     </View>
   );
