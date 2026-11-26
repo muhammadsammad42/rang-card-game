@@ -52,20 +52,32 @@ export default function HistoryDetailScreen() {
   const [game, setGame] = useState<HistoryItem | null>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'missing' | 'error'>('loading');
 
-  const load = useCallback(async () => {
-    setState('loading');
-    try {
-      const g = await fetchGame(String(id));
-      setGame(g);
-      setState(g ? 'ready' : 'missing');
-    } catch {
-      setState('error');
-    }
-  }, [id]);
+  /** Fetches the game; state only changes when the result arrives (or on an explicit retry). */
+  const fetchInto = useCallback(
+    (isAlive: () => boolean) =>
+      fetchGame(String(id))
+        .then((g) => {
+          if (!isAlive()) return;
+          setGame(g);
+          setState(g ? 'ready' : 'missing');
+        })
+        .catch(() => isAlive() && setState('error')),
+    [id],
+  );
 
+  // Initial load (state starts as 'loading'); ignores the result if the screen was left.
   useEffect(() => {
-    load();
-  }, [load]);
+    let alive = true;
+    fetchInto(() => alive);
+    return () => {
+      alive = false;
+    };
+  }, [fetchInto]);
+
+  const retry = () => {
+    setState('loading');
+    fetchInto(() => true);
+  };
 
   const name = (seat: Seat) => game?.playerNames?.[seat] ?? `Seat ${seat}`;
 
@@ -84,7 +96,7 @@ export default function HistoryDetailScreen() {
             <Text style={[typography.heading, { color: colors.ivory }]}>
               {state === 'missing' ? 'Game not found' : 'Could not load this game'}
             </Text>
-            <AppButton label="Retry" icon="refresh" onPress={load} />
+            <AppButton label="Retry" icon="refresh" onPress={retry} />
           </View>
         )}
         {state === 'ready' && game && (

@@ -63,10 +63,10 @@ export function AppButton({
         disabled={disabled}
         onPress={onPress}
         onPressIn={() => {
-          scale.value = withSpring(0.95, { damping: 15, stiffness: 400 });
+          scale.set(withSpring(0.95, { damping: 15, stiffness: 400 }));
         }}
         onPressOut={() => {
-          scale.value = withSpring(1, { damping: 12, stiffness: 300 });
+          scale.set(withSpring(1, { damping: 12, stiffness: 300 }));
         }}
         hitSlop={6}>
         {variant === 'primary' ? (

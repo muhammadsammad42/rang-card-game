@@ -20,6 +20,7 @@ import {
   useCallback,
   useContext,
   useEffect,
+  useLayoutEffect,
   useMemo,
   useReducer,
   useRef,
@@ -129,48 +130,64 @@ export function GameProvider({ children }: { children: ReactNode }) {
 
   const [paused, setPaused] = useState(false);
   const [active, setActive] = useState(false);
-  /** How many finished tricks have already been shown and swept off the table. */
-  const [ackedTricks, setAckedTricks] = useState(0);
-  const [sweeping, setSweeping] = useState(false);
-  const [error, setError] = useState<{ message: string; seq: number } | null>(null);
   const [events, setEvents] = useState<GameEvents>({ revealSeq: 0, collectSeq: 0 });
-  const [saveStatus, setSaveStatus] = useState<GameContextValue['saveStatus']>('idle');
 
-  // Refs give timers and callbacks the latest values without re-subscribing.
-  const gameRef = useRef(game);
-  gameRef.current = game;
-  const pausedRef = useRef(paused);
-  pausedRef.current = paused;
+  /** Identifies the current hand. Per-hand UI state is stored with this key, so a new hand resets it automatically. */
+  const handKey = game ? `${game.handNumber}:${game.handSeed}` : '';
+  const trickCount = game?.completedTricks.length ?? 0;
+
+  /** How many finished tricks of this hand have been shown and swept off the table. */
+  const [acked, setAcked] = useState({ key: '', count: 0 });
+  const ackedTricks = acked.key === handKey ? acked.count : 0;
+  /** The finished trick currently sweeping away (hand key + trick number). */
+  const [sweepAt, setSweepAt] = useState<{ key: string; trick: number } | null>(null);
+  const sweeping = sweepAt !== null && sweepAt.key === handKey && sweepAt.trick === trickCount;
+  /** Cloud-save status of this hand's result. */
+  const [save, setSave] = useState<{ key: string; status: GameContextValue['saveStatus'] }>({ key: '', status: 'idle' });
+  const saveStatus = save.key === handKey ? save.status : 'idle';
+  /** An illegal-move message. It belongs to the state it describes, so it disappears as soon as the game moves on. */
+  const [errorState, setErrorState] = useState<{ message: string; seq: number; game: GameState } | null>(null);
+  const error = useMemo(
+    () => (errorState && errorState.game === game ? { message: errorState.message, seq: errorState.seq } : null),
+    [errorState, game],
+  );
 
   /**
-   * The finished trick still lying on the table (derived synchronously so the
+   * The finished trick still lying on the table (derived during render so the
    * cards never flicker): any completed trick not yet acknowledged is shown,
    * first in 'hold' (everyone sees who won), then 'sweep' (cards fly away).
    */
-  const trickCount = game?.completedTricks.length ?? 0;
-  const shownTrick: ShownTrick | null =
-    game && trickCount > ackedTricks
-      ? { record: game.completedTricks[trickCount - 1], stage: sweeping ? 'sweep' : 'hold' }
-      : null;
+  const lastTrick = game && trickCount > ackedTricks ? game.completedTricks[trickCount - 1] : null;
+  const shownTrick = useMemo<ShownTrick | null>(
+    () => (lastTrick ? { record: lastTrick, stage: sweeping ? 'sweep' : 'hold' } : null),
+    [lastTrick, sweeping],
+  );
+
+  const players = useMemo(() => getPlayers(settings.playerName), [settings.playerName]);
+
+  // Refs give timers and callbacks the latest values without re-subscribing.
+  // They are updated in a layout effect (after render, before any timer or tap can fire).
+  const gameRef = useRef(game);
+  const pausedRef = useRef(paused);
   const shownRef = useRef(shownTrick);
-  shownRef.current = shownTrick;
+  const playersRef = useRef(players);
+  useLayoutEffect(() => {
+    gameRef.current = game;
+    pausedRef.current = paused;
+    shownRef.current = shownTrick;
+    playersRef.current = players;
+  });
 
   /** Blocks double taps between dispatching a human move and the re-render. */
   const inputLockRef = useRef(false);
   const errorSeq = useRef(0);
-  const handStartedAt = useRef(Date.now());
+  const handStartedAt = useRef(0);
   /** Trick count seen by the announcement effect (to detect newly finished tricks). */
   const prevTrickCount = useRef(0);
 
-  const players = useMemo(() => getPlayers(settings.playerName), [settings.playerName]);
-  const playersRef = useRef(players);
-  playersRef.current = players;
-
-  // Release the double-tap lock once the new state has rendered, and clear any
-  // stale error message (it described the previous position).
+  // Release the double-tap lock once the new state has rendered.
   useEffect(() => {
     inputLockRef.current = false;
-    setError(null);
   }, [game]);
 
   // ---- Pause automatically when the app goes to the background ----
@@ -182,26 +199,20 @@ export function GameProvider({ children }: { children: ReactNode }) {
     return () => sub.remove();
   }, []);
 
-  // ---- A new hand started: reset the clock and the trick display ----
-  const handKey = game ? `${game.handNumber}:${game.handSeed}` : '';
+  // ---- A new hand started: restart the clock (per-hand state resets via handKey) ----
   useEffect(() => {
     if (!handKey) return;
     handStartedAt.current = Date.now();
     prevTrickCount.current = 0;
-    setAckedTricks(0);
-    setSweeping(false);
-    setSaveStatus('idle');
   }, [handKey]);
 
   // ---- A trick finished: hold it on the table, then sweep it away ----
   useEffect(() => {
     if (trickCount <= ackedTricks) return;
-    setSweeping(false);
-    const toSweep = setTimeout(() => setSweeping(true), TRICK_HOLD_MS);
-    const done = setTimeout(() => {
-      setSweeping(false);
-      setAckedTricks(trickCount);
-    }, TRICK_HOLD_MS + TRICK_SWEEP_MS);
+    const key = handKey;
+    const trick = trickCount;
+    const toSweep = setTimeout(() => setSweepAt({ key, trick }), TRICK_HOLD_MS);
+    const done = setTimeout(() => setAcked({ key, count: trick }), TRICK_HOLD_MS + TRICK_SWEEP_MS);
     return () => {
       clearTimeout(toSweep);
       clearTimeout(done);
@@ -252,13 +263,14 @@ export function GameProvider({ children }: { children: ReactNode }) {
     const humanWon = g.result.winnerTeam === teamOf(HUMAN_SEAT);
     recordHand({ won: humanWon, wasBidder: g.result.bidder === HUMAN_SEAT, bid: g.result.bid });
     const durationSeconds = Math.round((Date.now() - handStartedAt.current) / 1000);
-    setSaveStatus('saving');
+    const key = handKey;
+    setSave({ key, status: 'saving' });
     saveHandResult(g, playersRef.current, durationSeconds)
       .then((status) => {
-        setSaveStatus(status);
+        setSave({ key, status });
         if (status === 'queued') toast.show('Offline — this game will sync to the cloud later', 'info');
       })
-      .catch(() => setSaveStatus('queued'));
+      .catch(() => setSave({ key, status: 'queued' }));
   }, [game?.phase, handKey, recordHand, toast]);
 
   // ---- The scheduler: deals and bot moves ----
@@ -298,12 +310,12 @@ export function GameProvider({ children }: { children: ReactNode }) {
       const res = applyAction(g, action);
       if (!res.ok) {
         errorSeq.current += 1;
-        setError({ message: res.error, seq: errorSeq.current });
+        setErrorState({ message: res.error, seq: errorSeq.current, game: g });
         feedback.error();
         return false;
       }
       inputLockRef.current = true;
-      setError(null);
+      setErrorState(null);
       dispatch(action);
       return true;
     },
@@ -323,11 +335,9 @@ export function GameProvider({ children }: { children: ReactNode }) {
   const chooseRang = useCallback((cardId: string) => void act({ type: 'CHOOSE_RANG', seat: HUMAN_SEAT, cardId }), [act]);
   const reveal = useCallback(() => void act({ type: 'REVEAL_RANG', seat: HUMAN_SEAT }), [act]);
 
-  /** Clears per-hand UI state before a new deal (the hand-key effect resets the rest). */
+  /** Clears transient UI state before a new deal (per-hand state resets via the new hand key). */
   const resetTransient = useCallback(() => {
-    setAckedTricks(Number.MAX_SAFE_INTEGER); // hide any trick on the table until the new hand starts
-    setSweeping(false);
-    setError(null);
+    setErrorState(null);
     setPaused(false);
     inputLockRef.current = false;
   }, []);

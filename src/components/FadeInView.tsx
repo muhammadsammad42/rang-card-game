@@ -26,7 +26,7 @@ export function FadeInView({ children, style, from = 'fade', distance = 24, dura
   const t = useSharedValue(0);
 
   useEffect(() => {
-    t.value = withDelay(delay, withTiming(1, { duration, easing: Easing.out(Easing.cubic) }));
+    t.set(withDelay(delay, withTiming(1, { duration, easing: Easing.out(Easing.cubic) })));
   }, [t, delay, duration]);
 
   const animated = useAnimatedStyle(() => {

@@ -7,7 +7,7 @@
  * slide to new positions when the hand re-sorts, lift when selected, follow
  * your finger when dragged, and the whole hand shakes after an invalid move.
  */
-import { memo, useEffect, useRef } from 'react';
+import { memo, useEffect } from 'react';
 import { StyleSheet, View } from 'react-native';
 import { GestureDetector, useCompetingGestures, usePanGesture, useTapGesture } from 'react-native-gesture-handler';
 import Animated, {
@@ -84,20 +84,20 @@ const HandCard = memo(function HandCard({
 
   // Deal-in: drop from above with a stagger.
   useEffect(() => {
-    enter.value = withDelay(enterDelay, withTiming(1, { duration: 380, easing: Easing.out(Easing.back(1.2)) }));
+    enter.set(withDelay(enterDelay, withTiming(1, { duration: 380, easing: Easing.out(Easing.back(1.2)) })));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Slide smoothly when the fan layout changes (cards added/removed/sorted).
   useEffect(() => {
-    posX.value = withTiming(x, { duration: 260 });
-    posY.value = withTiming(y, { duration: 260 });
-    rot.value = withTiming(rotate, { duration: 260 });
+    posX.set(withTiming(x, { duration: 260 }));
+    posY.set(withTiming(y, { duration: 260 }));
+    rot.set(withTiming(rotate, { duration: 260 }));
   }, [x, y, rotate, posX, posY, rot]);
 
   // Lift the selected card.
   useEffect(() => {
-    lift.value = withSpring(selected ? -cardHeight * 0.22 : 0, { damping: 14, stiffness: 220 });
+    lift.set(withSpring(selected ? -cardHeight * 0.22 : 0, { damping: 14, stiffness: 220 }));
   }, [selected, cardHeight, lift]);
 
   // Gesture callbacks are worklets: they run on the UI thread (smooth dragging)
@@ -108,16 +108,16 @@ const HandCard = memo(function HandCard({
     failOffsetX: [-24, 24],
     onUpdate: (e) => {
       'worklet';
-      drag.value = Math.min(0, e.translationY);
+      drag.set(Math.min(0, e.translationY));
     },
     onDeactivate: (e) => {
       'worklet';
       if (e.translationY < -swipeDistance) scheduleOnRN(onSwipe, card);
-      drag.value = withSpring(0);
+      drag.set(withSpring(0));
     },
     onFinalize: () => {
       'worklet';
-      drag.value = withSpring(0);
+      drag.set(withSpring(0));
     },
   });
   const tap = useTapGesture({
@@ -178,28 +178,21 @@ function HandBase({
   const maxRot = Math.min(16, n * 1.3);
   const arc = cardWidth * 0.16;
 
-  // Cards that were not in the hand before are "new" and get a deal-in delay.
-  const known = useRef(new Set<string>());
-  const delays = new Map<string, number>();
-  let newIndex = 0;
-  for (const c of cards) {
-    if (!known.current.has(c.id)) delays.set(c.id, dealOffset + newIndex++ * dealStagger);
-  }
-  useEffect(() => {
-    known.current = new Set(cards.map((c) => c.id));
-  }, [cards]);
+  // Deal-in delay: each card's delay grows with its position in the fan. It only
+  // matters when a card mounts — i.e. when it is dealt — so cards already in the
+  // hand are unaffected, and newly dealt cards drop in left to right.
 
   // Invalid move → shake the whole hand.
   const shake = useSharedValue(0);
   useEffect(() => {
     if (shakeSeq === 0) return;
-    shake.value = withSequence(
+    shake.set(withSequence(
       withTiming(-10, { duration: 50 }),
       withTiming(10, { duration: 70 }),
       withTiming(-7, { duration: 60 }),
       withTiming(5, { duration: 60 }),
       withTiming(0, { duration: 50 }),
-    );
+    ));
   }, [shakeSeq, shake]);
   const shakeStyle = useAnimatedStyle(() => ({ transform: [{ translateX: shake.value }] }));
 
@@ -220,7 +213,7 @@ function HandBase({
               selected={card.id === selectedId}
               dimmed={showLegality && !legal}
               highlighted={showLegality && legal && n > 0 && legalIds.size < n}
-              enterDelay={delays.get(card.id) ?? 0}
+              enterDelay={dealOffset + i * dealStagger}
               zIndex={i}
               onTap={onTap}
               onSwipe={onSwipe}

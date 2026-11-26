@@ -64,7 +64,7 @@ Each rubric criterion mapped to the features and files that satisfy it.
 | Explicit state machine | `types.ts` `Phase`; `docs/PROJECT_GUIDE.md` §2 |
 | Bots only see `PublicView` (no cheating) | `engine.getPublicView`, `ai.ts` |
 | Bot scheduler with cancellable timers; double-tap / stale-action guards | `GameProvider.tsx` |
-| 299 Jest tests | `src/game/__tests__/`, `src/services/__tests__/` |
+| 299 offline Jest tests + 3 live Firestore tests | `src/game/__tests__/`, `src/services/__tests__/` |
 
 ## 5. Error handling & stability — 5
 
@@ -76,7 +76,7 @@ Each rubric criterion mapped to the features and files that satisfy it.
 | Android back → pause menu | `game.tsx` (BackHandler) |
 | Firebase offline / not configured → local queue, retries, toasts | `services/historyService.ts`, `_layout.tsx` StartupSync |
 | Storage errors swallowed safely | `services/storage.ts` |
-| `tsc --noEmit` clean, `expo-doctor` 20/20, tests green | CI-style commands in the README |
+| `tsc --noEmit` clean, `npx expo lint` clean (0 errors / 0 warnings), `expo-doctor` 20/20, tests green | CI-style commands in the README |
 
 ## 6. Viva & code understanding — 20
 
@@ -91,10 +91,15 @@ Each rubric criterion mapped to the features and files that satisfy it.
 - Every source file starts with a purpose comment; non-obvious functions have short comments.
 - The tests double as executable documentation of the rules.
 
-## 7. Bonus — Firebase game history — 10
+## 7. Bonus — Firebase game history — 10 ✅ working
+
+The app is connected to Firebase project `rang-card-game-4c317`, `(default)` Firestore database.
 
 | Requirement | Where |
 |---|---|
+| **Verified live:** save → `games` document → History query → History Detail; an offline-queued game uploads; connects to `(default)` | `src/services/__tests__/firebase.integration.test.ts` (`RUN_FIREBASE_IT=1 npx jest firebase.integration`) |
+| No composite index needed (single `deviceId ==` filter, sorted on device) | `historyService.fetchHistory` |
+| Retries can't duplicate or get stuck (fixed document ids; an existing document counts as uploaded) | `historyService.upload`, `existsInCloud`, `flushQueue` |
 | Firebase JS SDK + Cloud Firestore, config from `EXPO_PUBLIC_FIREBASE_*` in `.env` (`.env.example` committed, `.env` ignored) | `services/firebase.ts`, `.env.example`, `.gitignore` |
 | A `games` document per hand with all required fields + trick log | `historyService.buildRecord` |
 | Offline queue in AsyncStorage, retried on start and on History open; toast | `saveHandResult`, `flushQueue`, `StartupSync` |

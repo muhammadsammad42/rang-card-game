@@ -39,7 +39,8 @@ export default function GameScreen() {
   const layout = useLayout();
   const insets = useSafeAreaInsets();
   const feedback = useFeedback();
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  /** Selected card, remembered together with the hand it belongs to. */
+  const [selected, setSelected] = useState<{ id: string; hand: string } | null>(null);
   const [peek, setPeek] = useState(false);
 
   const { setActive, pause, startNewMatch } = g;
@@ -71,10 +72,11 @@ export default function GameScreen() {
 
   const hand = useMemo(() => (game ? sortHand(game.hands[humanSeat]) : []), [game, humanSeat]);
 
-  // Forget the selection when the selected card leaves the hand or a new hand starts.
-  useEffect(() => {
-    if (selectedId && !hand.some((c) => c.id === selectedId)) setSelectedId(null);
-  }, [hand, selectedId]);
+  // A selection only counts while that card is still in the hand (played cards
+  // and new hands drop it automatically — derived, no effect needed).
+  const handKey = game ? `${game.handNumber}:${game.handSeed}` : '';
+  const activeSelection =
+    selected && selected.hand === handKey && hand.some((c) => c.id === selected.id) ? selected.id : null;
 
   const playing = game?.phase === 'PLAYING';
   const myPlayTurn = playing && g.isHumanTurn && !g.shownTrick;
@@ -86,19 +88,19 @@ export default function GameScreen() {
         g.playCard(card.id);
         return;
       }
-      if (selectedId === card.id) {
-        if (g.playCard(card.id)) setSelectedId(null);
+      if (activeSelection === card.id) {
+        if (g.playCard(card.id)) setSelected(null);
       } else {
-        setSelectedId(card.id);
+        setSelected({ id: card.id, hand: handKey });
         feedback.tap();
       }
     },
-    [g, myPlayTurn, selectedId, feedback],
+    [g, myPlayTurn, activeSelection, feedback, handKey],
   );
 
   const onSwipe = useCallback(
     (card: Card) => {
-      if (g.playCard(card.id)) setSelectedId(null);
+      if (g.playCard(card.id)) setSelected(null);
     },
     [g],
   );
@@ -154,7 +156,7 @@ export default function GameScreen() {
             cardWidth={layout.handCardWidth}
             legalIds={g.legalIds}
             showLegality={!!myPlayTurn}
-            selectedId={selectedId}
+            selectedId={activeSelection}
             onTap={onTap}
             onSwipe={onSwipe}
             shakeSeq={g.error?.seq ?? 0}

@@ -42,23 +42,24 @@ interface Props {
 function RangSlotBase({ placed, revealed, card, knownSuit, mine, revealSeq, cardWidth }: Props) {
   const flip = useSharedValue(revealed ? 1 : 0);
   const settle = useSharedValue(revealed ? 1 : 0);
-  const [burstKey, setBurstKey] = useState(0);
+  /** The reveal whose burst has finished. Starts at the current value so remounting never replays an old burst. */
+  const [burstDone, setBurstDone] = useState(revealSeq);
+  const showBurst = revealed && revealSeq > 0 && revealSeq !== burstDone;
 
   useEffect(() => {
     if (revealSeq === 0 || !revealed) return;
     // Flip the card face up, then fade it into the suit medallion.
-    flip.value = 0;
-    settle.value = 0;
-    flip.value = withTiming(1, { duration: 600, easing: Easing.inOut(Easing.cubic) });
-    settle.value = withDelay(1500, withTiming(1, { duration: 400 }));
-    setBurstKey(revealSeq);
+    flip.set(0);
+    settle.set(0);
+    flip.set(withTiming(1, { duration: 600, easing: Easing.inOut(Easing.cubic) }));
+    settle.set(withDelay(1500, withTiming(1, { duration: 400 })));
   }, [revealSeq, revealed, flip, settle]);
 
   // A new hand: back to face down.
   useEffect(() => {
     if (!revealed) {
-      flip.value = 0;
-      settle.value = 0;
+      flip.set(0);
+      settle.set(0);
     }
   }, [revealed, flip, settle]);
 
@@ -95,14 +96,14 @@ function RangSlotBase({ placed, revealed, card, knownSuit, mine, revealSeq, card
             <SuitIcon suit={knownSuit} size={12} color={colors.textOnGold} />
           </View>
         )}
-        {burstKey > 0 && (
+        {showBurst && (
           <View pointerEvents="none" style={styles.burst}>
             <LottieAnim
-              key={burstKey}
+              key={revealSeq}
               name="rangReveal"
               loop={false}
               style={{ width: w * 4, height: w * 4 }}
-              onFinish={() => setBurstKey(0)}
+              onFinish={() => setBurstDone(revealSeq)}
             />
           </View>
         )}

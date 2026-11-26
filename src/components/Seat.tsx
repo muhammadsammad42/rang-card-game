@@ -44,10 +44,10 @@ function SeatBase({ player, size, isTurn, isDealer, isBidder, cardCount, bubble,
   // Turn indicator: a gold halo that breathes while it's this player's turn.
   useEffect(() => {
     if (isTurn) {
-      pulse.value = withRepeat(withTiming(1, { duration: 850, easing: Easing.inOut(Easing.quad) }), -1, true);
+      pulse.set(withRepeat(withTiming(1, { duration: 850, easing: Easing.inOut(Easing.quad) }), -1, true));
     } else {
       cancelAnimation(pulse);
-      pulse.value = withTiming(0, { duration: 200 });
+      pulse.set(withTiming(0, { duration: 200 }));
     }
   }, [isTurn, pulse]);
 

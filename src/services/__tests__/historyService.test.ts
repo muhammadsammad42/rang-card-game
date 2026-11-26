@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-require-imports -- jest.mock factories need require() */
 /**
  * historyService.test.ts — the cloud-history record and the offline queue,
  * tested with Firebase NOT configured (the app must still work).
