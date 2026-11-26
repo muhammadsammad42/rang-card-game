@@ -5,7 +5,7 @@
  * `.env.example`). If any value is missing, `getDb()` returns null and the app
  * keeps working offline — games are queued locally instead.
  */
-import { getApp, getApps, initializeApp } from 'firebase/app';
+import { FirebaseApp, getApp, getApps, initializeApp } from 'firebase/app';
 import { Firestore, getFirestore, initializeFirestore } from 'firebase/firestore';
 
 // Expo inlines EXPO_PUBLIC_* variables at build time, so each must be referenced literally.
@@ -25,12 +25,24 @@ export const isFirebaseConfigured: boolean = Object.values(firebaseConfig).every
 
 let db: Firestore | null = null;
 
+/** The shared Firebase app (created on first use). Null if Firebase is not configured. */
+export function getFirebaseApp(): FirebaseApp | null {
+  if (!isFirebaseConfigured) return null;
+  try {
+    return getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+  } catch (e) {
+    if (__DEV__) console.warn('Firebase init failed:', (e as Error).message);
+    return null;
+  }
+}
+
 /** Lazily creates the Firestore instance. Returns null if not configured or if init fails. */
 export function getDb(): Firestore | null {
   if (!isFirebaseConfigured) return null;
   if (db) return db;
   try {
-    const app = getApps().length > 0 ? getApp() : initializeApp(firebaseConfig);
+    const app = getFirebaseApp();
+    if (!app) return null;
     try {
       // Long polling is the most reliable transport on React Native.
       db = initializeFirestore(app, { experimentalForceLongPolling: true });
