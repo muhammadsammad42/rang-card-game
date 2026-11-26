@@ -1,15 +1,16 @@
 /**
  * AppButton.tsx — the app's button. Gold gradient (primary), glass (secondary),
- * text-only (ghost) or red (danger). Presses shrink the button slightly with a
- * Reanimated spring for tactile feedback.
+ * text-only (ghost) or red (danger). Built on PressableScale, so every press
+ * shrinks the button with a Reanimated spring and gives a light haptic tick.
  */
 import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { ComponentProps, ReactNode } from 'react';
-import { Pressable, StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
-import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
+import { StyleProp, StyleSheet, Text, View, ViewStyle } from 'react-native';
 
-import { colors, gradients, radii, spacing, typography } from '@/theme/theme';
+import { colors, gradients, radii, shadows, spacing, typography } from '@/theme/theme';
+
+import { PressableScale } from './PressableScale';
 
 type IconName = ComponentProps<typeof MaterialCommunityIcons>['name'];
 
@@ -25,7 +26,7 @@ interface Props {
   children?: ReactNode;
 }
 
-const HEIGHT = { sm: 36, md: 46, lg: 56 } as const;
+const HEIGHT = { sm: 38, md: 48, lg: 56 } as const;
 
 export function AppButton({
   label,
@@ -37,9 +38,6 @@ export function AppButton({
   style,
   accessibilityHint,
 }: Props) {
-  const scale = useSharedValue(1);
-  const animated = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
-
   const textColor =
     variant === 'primary' ? colors.textOnGold : variant === 'danger' ? colors.ivory : variant === 'ghost' ? colors.gold : colors.ivory;
   const content = (
@@ -54,38 +52,33 @@ export function AppButton({
   );
 
   return (
-    <Animated.View style={[animated, { opacity: disabled ? 0.4 : 1 }, style]}>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={label}
-        accessibilityHint={accessibilityHint}
-        accessibilityState={{ disabled: !!disabled }}
-        disabled={disabled}
-        onPress={onPress}
-        onPressIn={() => {
-          scale.set(withSpring(0.95, { damping: 15, stiffness: 400 }));
-        }}
-        onPressOut={() => {
-          scale.set(withSpring(1, { damping: 12, stiffness: 300 }));
-        }}
-        hitSlop={6}>
-        {variant === 'primary' ? (
-          <LinearGradient colors={gradients.gold} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[styles.base, { height: HEIGHT[size] }]}>
-            {content}
-          </LinearGradient>
-        ) : (
-          <View
-            style={[
-              styles.base,
-              { height: HEIGHT[size] },
-              variant === 'secondary' && styles.secondary,
-              variant === 'danger' && styles.danger,
-            ]}>
-            {content}
-          </View>
-        )}
-      </Pressable>
-    </Animated.View>
+    <PressableScale
+      style={[{ opacity: disabled ? 0.4 : 1 }, style]}
+      disabled={disabled}
+      onPress={onPress}
+      hitSlop={6}
+      accessibilityLabel={label}
+      accessibilityHint={accessibilityHint}>
+      {variant === 'primary' ? (
+        <LinearGradient
+          colors={gradients.gold}
+          start={{ x: 0, y: 0 }}
+          end={{ x: 1, y: 1 }}
+          style={[styles.base, !disabled && shadows.sm, { height: HEIGHT[size] }]}>
+          {content}
+        </LinearGradient>
+      ) : (
+        <View
+          style={[
+            styles.base,
+            { height: HEIGHT[size] },
+            variant === 'secondary' && styles.secondary,
+            variant === 'danger' && styles.danger,
+          ]}>
+          {content}
+        </View>
+      )}
+    </PressableScale>
   );
 }
 

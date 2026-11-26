@@ -5,6 +5,9 @@
  * BiddingPanel, RangPicker, ResultModal…) with the local view from
  * OnlineRoomProvider, so online play looks and animates exactly like offline.
  *
+ * The hand uses the same useHandController as offline play, so playable-card
+ * highlighting, drag-to-play and the illegal-tap hint behave identically.
+ *
  * Flow of a move: tap → useOnline().move (checked locally with the engine)
  *   → host: applied at once / others: ActionDoc sent → the host validates it
  *   with the engine → publishes the new state → every phone re-renders.
@@ -13,6 +16,7 @@ import { router, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { BackHandler, StyleSheet, Text, View } from 'react-native';
+import { useAnimatedRef } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ActionBar } from '@/components/ActionBar';
@@ -29,15 +33,15 @@ import { InfoStrip, TopBar } from '@/components/ScoreBoard';
 import { Table } from '@/components/Table';
 import { useToast } from '@/components/Toast';
 import { useSettings } from '@/context/SettingsProvider';
-import { sortHand } from '@/game/deck';
 import type { Card } from '@/game/types';
 import { useFeedback } from '@/hooks/useFeedback';
+import { useHandController } from '@/hooks/useHandController';
 import { useLayout } from '@/hooks/useLayout';
 import { useOnline } from '@/online/OnlineRoomProvider';
 import { useOnlineHistory } from '@/online/useOnlineHistory';
 import { useTableDisplay } from '@/online/useTableDisplay';
 import { colors, gradients, motion, radii, spacing, typography } from '@/theme/theme';
-import { statusLine, streakLine } from '@/utils/status';
+import { statusInfo, StatusInfo, streakChip } from '@/utils/status';
 
 const ME = 0 as const; // in the local view I am always seat 0 (South)
 
@@ -48,8 +52,9 @@ export default function OnlineGameScreen() {
   const feedback = useFeedback();
   const toast = useToast();
   const { recordHand } = useSettings();
-  const [selected, setSelected] = useState<{ id: string; hand: string } | null>(null);
   const [peek, setPeek] = useState(false);
+  /** The centre drop zone on the table; <Hand> measures it while a card is dragged. */
+  const dropZone = useAnimatedRef<View>();
   const [confirmLeave, setConfirmLeave] = useState(false);
 
   const view = o.view;
@@ -90,46 +95,19 @@ export default function OnlineGameScreen() {
     router.replace('/');
   }, [o]);
 
-  const hand = useMemo(() => (game ? sortHand(game.hands[ME]) : []), [game]);
-  const handKey = game ? `${game.handNumber}:${game.handSeed}` : '';
-  const activeSelection =
-    selected && selected.hand === handKey && hand.some((c) => c.id === selected.id) ? selected.id : null;
-
   const seated = o.mySeat !== null;
   const myTurnNow = seated && o.isMyTurn && !shownTrick && !o.pendingMove;
   const myPlayTurn = myTurnNow && game?.phase === 'PLAYING';
 
-  const play = useCallback((card: Card) => o.move({ type: 'PLAY_CARD', cardId: card.id }), [o]);
-
-  const onTap = useCallback(
+  const play = useCallback(
     (card: Card) => {
-      if (!seated) return;
-      if (myPlayTurn && !o.legalIds.has(card.id)) {
-        play(card); // explains why (message + shake)
-        return;
-      }
-      if (activeSelection === card.id) {
-        if (!myPlayTurn) return; // not my turn: cards can be looked at, not played
-        if (play(card)) {
-          setSelected(null);
-          feedback.play();
-        }
-      } else {
-        setSelected({ id: card.id, hand: handKey });
-        feedback.tap();
-      }
+      const ok = o.move({ type: 'PLAY_CARD', cardId: card.id });
+      if (ok) feedback.play();
+      return ok;
     },
-    [seated, myPlayTurn, o.legalIds, activeSelection, play, feedback, handKey],
+    [o, feedback],
   );
-  const onSwipe = useCallback(
-    (card: Card) => {
-      if (myPlayTurn && play(card)) {
-        setSelected(null);
-        feedback.play();
-      }
-    },
-    [myPlayTurn, play, feedback],
-  );
+  const hand = useHandController({ game, seat: ME, legalIds: o.legalIds, canPlay: !!myPlayTurn, play });
 
   if (!game || !view) {
     return (
@@ -144,15 +122,14 @@ export default function OnlineGameScreen() {
   const turnPlayer = players[game.turn];
   const waitingForHuman =
     !shown && game.turn !== ME && !turnPlayer?.isBot && (game.phase === 'BIDDING' || game.phase === 'CHOOSE_RANG' || game.phase === 'PLAYING');
-  const status = !seated
-    ? 'You are watching — a bot is playing your seat.'
+  const status: StatusInfo = !seated
+    ? { text: 'You are watching: a bot is playing your seat.', tone: 'info' }
     : o.pendingMove
-      ? 'Sending your move…'
+      ? { text: 'Sending your move…', tone: 'wait' }
       : waitingForHuman
-        ? `Waiting for ${turnPlayer.name}…`
-        : statusLine(game, players, ME, shown, o.canReveal);
-  const streak = streakLine(game, players, ME);
-  const handWidth = layout.contentWidth - spacing.md * 2;
+        ? { text: `Waiting for ${turnPlayer.name}…`, tone: 'wait' }
+        : statusInfo(game, players, ME, shown, o.canReveal);
+  const handWidth = layout.contentWidth - spacing.sm * 2;
   const position = (ME - game.dealer + 4) % 4;
   const perCard = game.phase === 'DEAL_REST' ? motion.deal * 0.55 : motion.deal;
   const dealOffset = ((position + 3) % 4) * perCard;
@@ -185,6 +162,9 @@ export default function OnlineGameScreen() {
           events={events}
           seatSize={layout.seatSize}
           maxTrickCardWidth={layout.trickCardWidth}
+          dropZone={dropZone}
+          dragState={hand.dragState}
+          streak={streakChip(game, players, ME)}
         />
         <ActionBar
           game={game}
@@ -192,10 +172,11 @@ export default function OnlineGameScreen() {
           humanSeat={ME}
           isMyTurn={myTurnNow && game.phase !== 'DEAL_5' && game.phase !== 'DEAL_REST'}
           status={status}
-          streak={streak}
-          error={o.moveError}
+          error={o.moveError ?? hand.hint}
           canReveal={o.canReveal && myTurnNow}
           onReveal={() => o.move({ type: 'REVEAL_RANG' })}
+          sortMode={hand.sortMode}
+          onToggleSort={hand.toggleSort}
         />
         {!seated && (
           <View style={styles.spectator}>
@@ -206,14 +187,16 @@ export default function OnlineGameScreen() {
         )}
         <View style={styles.handWrap}>
           <Hand
-            cards={hand}
+            cards={hand.cards}
             width={handWidth}
-            cardWidth={layout.handCardWidth}
-            legalIds={o.legalIds}
-            showLegality={!!myPlayTurn}
-            selectedId={activeSelection}
-            onTap={onTap}
-            onSwipe={onSwipe}
+            maxCardWidth={layout.handCardWidth}
+            interactive={!!myPlayTurn}
+            selectedId={hand.selectedId}
+            onTap={hand.onTap}
+            onPlay={hand.onPlay}
+            onBlocked={hand.onBlocked}
+            dropZone={dropZone}
+            dragState={hand.dragState}
             shakeSeq={o.moveError?.seq ?? 0}
             dealStagger={perCard * 4}
             dealOffset={dealOffset}
@@ -288,7 +271,7 @@ const styles = StyleSheet.create({
   center: { justifyContent: 'center', gap: spacing.md },
   column: { flex: 1 },
   roomLine: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm, marginTop: 2 },
-  handWrap: { alignItems: 'center', paddingHorizontal: spacing.md, marginTop: spacing.xs },
+  handWrap: { alignItems: 'center', paddingHorizontal: spacing.sm, marginTop: spacing.xs },
   spectator: {
     marginHorizontal: spacing.md,
     marginTop: spacing.xs,

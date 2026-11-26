@@ -1,6 +1,6 @@
 /**
  * settings.tsx — Settings: player name, bot difficulty, bot speed, haptics,
- * and resetting local stats. Saved automatically to AsyncStorage.
+ * reduce animations, hand sort order, and resetting local stats. Saved automatically to AsyncStorage.
  */
 import { LinearGradient } from 'expo-linear-gradient';
 import { useState } from 'react';
@@ -13,11 +13,29 @@ import { GlassPanel } from '@/components/GlassPanel';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { Segmented } from '@/components/Segmented';
 import { useToast } from '@/components/Toast';
-import { BotSpeed, Difficulty, useSettings } from '@/context/SettingsProvider';
+import { BotSpeed, Difficulty, HandSort, useSettings } from '@/context/SettingsProvider';
 import { useLayout } from '@/hooks/useLayout';
 import { colors, gradients, radii, spacing, typography } from '@/theme/theme';
 
 const MAX_NAME = 16;
+
+function SwitchRow({ title, help, value, onChange }: { title: string; help: string; value: boolean; onChange: (v: boolean) => void }) {
+  return (
+    <View style={styles.switchRow}>
+      <View style={{ flex: 1 }}>
+        <Text style={[typography.label, { color: colors.ivory }]}>{title}</Text>
+        <Text style={[typography.caption, styles.help]}>{help}</Text>
+      </View>
+      <Switch
+        value={value}
+        onValueChange={onChange}
+        trackColor={{ true: colors.goldDeep, false: colors.nightPanel }}
+        thumbColor={value ? colors.goldLight : colors.textDim}
+        accessibilityLabel={title}
+      />
+    </View>
+  );
+}
 
 export default function SettingsScreen() {
   const insets = useSafeAreaInsets();
@@ -90,20 +108,34 @@ export default function SettingsScreen() {
           </GlassPanel>
 
           <GlassPanel style={styles.panel}>
-            <Text style={[typography.micro, styles.section]}>Feedback</Text>
-            <View style={styles.switchRow}>
-              <View style={{ flex: 1 }}>
-                <Text style={[typography.label, { color: colors.ivory }]}>Haptics</Text>
-                <Text style={[typography.caption, styles.help]}>Vibration when you play, make an invalid move or win.</Text>
-              </View>
-              <Switch
-                value={settings.haptics}
-                onValueChange={(haptics) => update({ haptics })}
-                trackColor={{ true: colors.goldDeep, false: colors.nightPanel }}
-                thumbColor={settings.haptics ? colors.goldLight : colors.textDim}
-                accessibilityLabel="Haptic feedback"
-              />
-            </View>
+            <Text style={[typography.micro, styles.section]}>Feedback and motion</Text>
+            <SwitchRow
+              title="Haptics"
+              help="Vibration when you select or play a card, press a button, make an invalid move or win."
+              value={settings.haptics}
+              onChange={(haptics) => update({ haptics })}
+            />
+            <SwitchRow
+              title="Reduce animations"
+              help="Turns off pulsing glows, sparkles and the deal animation, and makes cards and dialogs appear instantly. Also follows the phone's Remove animations setting."
+              value={settings.reduceMotion}
+              onChange={(reduceMotion) => update({ reduceMotion })}
+            />
+          </GlassPanel>
+
+          <GlassPanel style={styles.panel}>
+            <Text style={[typography.micro, styles.section]}>Your hand</Text>
+            <Text style={[typography.label, styles.label]}>Sort cards</Text>
+            <Segmented<HandSort>
+              accessibilityLabel="Sort your hand"
+              value={settings.handSort}
+              onChange={(handSort) => update({ handSort })}
+              options={[
+                { value: 'suit', label: 'By suit' },
+                { value: 'rank', label: 'By rank' },
+              ]}
+            />
+            <Text style={[typography.caption, styles.help]}>You can also switch with the Sort chip next to your cards during a game.</Text>
           </GlassPanel>
 
           <GlassPanel style={styles.panel}>

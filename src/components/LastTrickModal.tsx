@@ -1,9 +1,11 @@
 /**
- * LastTrickModal.tsx — "peek" at the most recent finished trick: who played
- * which card, who won it, and where it went (team or middle pile).
+ * LastTrickModal.tsx — a bottom sheet that slides up to "peek" at the most
+ * recent finished trick: who played which card (the leader is marked ▶),
+ * who won it (gold glow), and where it went (team or middle pile).
  */
 import { StyleSheet, Text, View } from 'react-native';
 
+import { cardName } from '@/game/deck';
 import type { PlayerProfile } from '@/game/players';
 import type { TrickRecord } from '@/game/types';
 import { colors, radii, spacing, typography } from '@/theme/theme';
@@ -29,12 +31,12 @@ export function describeOutcome(t: TrickRecord, players: PlayerProfile[]): strin
 
 export function LastTrickModal({ trick, players, onClose }: { trick: TrickRecord; players: PlayerProfile[]; onClose: () => void }) {
   return (
-    <Overlay maxWidth={420}>
+    <Overlay position="bottom" maxWidth={480}>
       <Text style={[typography.micro, { color: colors.gold }]}>Trick {trick.number}</Text>
       <Text style={[typography.title, { color: colors.ivory, fontSize: 22 }]}>{players[trick.winner].name} won</Text>
       <View style={styles.row}>
         {trick.plays.map((p, i) => (
-          <View key={p.card.id} style={styles.play}>
+          <View key={p.card.id} style={styles.play} accessible accessibilityLabel={`${players[p.seat].name}${i === 0 ? ' led' : ' played'} ${cardName(p.card)}${p.seat === trick.winner ? ', winner' : ''}`}>
             <PlayingCard card={p.card} width={58} highlighted={p.seat === trick.winner} />
             <Text numberOfLines={1} style={[typography.caption, styles.name, p.seat === trick.winner && { color: colors.goldLight }]}>
               {i === 0 ? '▶ ' : ''}

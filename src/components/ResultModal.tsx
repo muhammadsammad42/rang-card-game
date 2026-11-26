@@ -1,21 +1,23 @@
 /**
- * ResultModal.tsx — the end-of-hand screen: a LottieFiles trophy + confetti
- * celebration (or a sad animation on a loss), the hand summary (bidder, bid,
+ * ResultModal.tsx — the end-of-hand screen: a big LottieFiles trophy + confetti
+ * celebration (or a sad animation on a loss), trick totals that count up, the hand summary (bidder, bid,
  * Rang, reveal, tricks per team), the match score, the cloud-save status, and
  * Next Hand / Restart Match / Home.
  */
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { ReactNode } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { ScrollView, StyleSheet, Text, useWindowDimensions, View } from 'react-native';
 
 import { SUIT_NAMES } from '@/game/deck';
 import type { PlayerProfile } from '@/game/players';
 import { teamOf } from '@/game/rules';
 import type { GameState, Seat } from '@/game/types';
+import { useMotion } from '@/hooks/useMotion';
 import { colors, radii, spacing, typography } from '@/theme/theme';
 import { teamLabel } from '@/utils/format';
 
 import { AppButton } from './AppButton';
+import { FadeInView } from './FadeInView';
 import { LottieAnim } from './LottieAnim';
 import { Overlay } from './Overlay';
 import { SuitIcon, suitColorOnDark } from './SuitIcon';
@@ -32,6 +34,29 @@ interface Props {
   canContinue?: boolean;
   /** Label for the Home button (online: "Leave Room"). */
   homeLabel?: string;
+}
+
+/** Counts up from 0 to `value` (≈60 ms per step); shows the value at once with reduced motion. */
+function CountUp({ value, delay = 0 }: { value: number; delay?: number }) {
+  const { reduced } = useMotion();
+  const [shown, setShown] = useState(reduced ? value : 0);
+  useEffect(() => {
+    if (reduced) return;
+    let n = 0;
+    let timer: ReturnType<typeof setInterval> | undefined;
+    const start = setTimeout(() => {
+      timer = setInterval(() => {
+        n += 1;
+        setShown(Math.min(n, value));
+        if (n >= value && timer) clearInterval(timer);
+      }, 60);
+    }, delay);
+    return () => {
+      clearTimeout(start);
+      if (timer) clearInterval(timer);
+    };
+  }, [value, delay, reduced]);
+  return <Text style={[typography.display, { color: colors.ivory, fontSize: 40 }]}>{reduced ? value : shown}</Text>;
 }
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
@@ -77,7 +102,7 @@ export function ResultModal({
           <LottieAnim name="confetti" loop={false} style={{ width: '100%', height: '100%' }} />
         </View>
       )}
-      <ScrollView style={{ maxHeight: height * 0.78 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+      <ScrollView style={{ maxHeight: height * 0.66 }} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <View style={styles.hero}>
           {won ? (
             <LottieAnim name="trophy" loop={false} style={styles.heroAnim} />
@@ -86,8 +111,14 @@ export function ResultModal({
               <LottieAnim name="lose" style={styles.loseAnim} />
             </View>
           )}
-          <Text style={[typography.display, styles.headline, { color: won ? colors.goldLight : colors.ivory }]}>{headline}</Text>
-          <Text style={[typography.body, styles.sub]}>{sub}</Text>
+          <FadeInView from="up" delay={150} distance={14}>
+            <Text
+              accessibilityRole="header"
+              style={[typography.display, styles.headline, { color: won ? colors.goldLight : colors.ivory }]}>
+              {headline}
+            </Text>
+            <Text style={[typography.body, styles.sub]}>{sub}</Text>
+          </FadeInView>
         </View>
 
         <View style={styles.summary}>
@@ -115,9 +146,17 @@ export function ResultModal({
           </Row>
           <View style={styles.tricks}>
             {(['A', 'B'] as const).map((team) => (
-              <View key={team} style={[styles.trickBox, { borderColor: team === 'A' ? colors.teamA : colors.teamB }]}>
+              <View
+                key={team}
+                accessible
+                accessibilityLabel={`${teamLabel(team)}: ${r.tricksWon[team]} tricks, needed ${team === r.biddingTeam ? r.bid : 14 - r.bid}`}
+                style={[
+                  styles.trickBox,
+                  { borderColor: team === 'A' ? colors.teamA : colors.teamB },
+                  team === r.winnerTeam && { backgroundColor: team === 'A' ? colors.teamASoft : colors.teamBSoft },
+                ]}>
                 <Text style={[typography.micro, { color: team === 'A' ? colors.teamA : colors.teamB }]}>{teamLabel(team)}</Text>
-                <Text style={[typography.title, { color: colors.ivory }]}>{r.tricksWon[team]}</Text>
+                <CountUp value={r.tricksWon[team]} delay={team === 'A' ? 350 : 500} />
                 <Text style={[typography.caption, { color: colors.textMuted }]}>
                   {team === r.biddingTeam ? `needed ${r.bid}` : `needed ${14 - r.bid}`}
                 </Text>
@@ -142,25 +181,26 @@ export function ResultModal({
         </View>
 
         <SaveLine status={saveStatus} />
-
-        {canContinue ? (
-          <View style={styles.buttons}>
-            <AppButton label="Next Hand" icon="cards-playing-outline" onPress={onNextHand} />
-            <View style={styles.buttonRow}>
-              <AppButton label="Restart Match" variant="secondary" size="sm" onPress={onRestartMatch} style={styles.flex} />
-              <AppButton label={homeLabel} variant="secondary" size="sm" icon="home-outline" onPress={onHome} style={styles.flex} />
-            </View>
-          </View>
-        ) : (
-          <View style={styles.buttons}>
-            <View style={styles.waiting}>
-              <LottieAnim name="loading" style={{ width: 34, height: 34 }} />
-              <Text style={[typography.label, { color: colors.textMuted }]}>Waiting for the host to deal the next hand…</Text>
-            </View>
-            <AppButton label={homeLabel} variant="secondary" size="sm" icon="exit-run" onPress={onHome} />
-          </View>
-        )}
       </ScrollView>
+
+      {/* Buttons sit below the scrolling summary so they are always visible, even on small phones. */}
+      {canContinue ? (
+        <View style={styles.buttons}>
+          <AppButton label="Next Hand" icon="cards-playing-outline" onPress={onNextHand} />
+          <View style={styles.buttonRow}>
+            <AppButton label="Restart Match" variant="secondary" size="sm" onPress={onRestartMatch} style={styles.flex} />
+            <AppButton label={homeLabel} variant="secondary" size="sm" icon="home-outline" onPress={onHome} style={styles.flex} />
+          </View>
+        </View>
+      ) : (
+        <View style={styles.buttons}>
+          <View style={styles.waiting}>
+            <LottieAnim name="loading" style={{ width: 34, height: 34 }} />
+            <Text style={[typography.label, { color: colors.textMuted }]}>Waiting for the host to deal the next hand…</Text>
+          </View>
+          <AppButton label={homeLabel} variant="secondary" size="sm" icon="exit-run" onPress={onHome} />
+        </View>
+      )}
     </Overlay>
   );
 }
@@ -196,18 +236,18 @@ const styles = StyleSheet.create({
   confetti: { ...StyleSheet.absoluteFill, zIndex: 2 },
   content: { gap: spacing.md },
   hero: { alignItems: 'center' },
-  heroAnim: { width: 140, height: 140 },
+  heroAnim: { width: 180, height: 180 },
   loseMedal: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
+    width: 140,
+    height: 140,
+    borderRadius: 70,
     backgroundColor: colors.ivory,
     alignItems: 'center',
     justifyContent: 'center',
     overflow: 'hidden',
     marginBottom: spacing.sm,
   },
-  loseAnim: { width: 110, height: 110 },
+  loseAnim: { width: 130, height: 130 },
   headline: { fontSize: 34, textAlign: 'center' },
   sub: { color: colors.textMuted, textAlign: 'center' },
   summary: { backgroundColor: colors.nightPanel, borderRadius: radii.lg, padding: spacing.md, gap: spacing.sm },

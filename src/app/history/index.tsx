@@ -10,13 +10,14 @@ import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { router, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { useCallback, useRef, useState } from 'react';
-import { FlatList, Pressable, RefreshControl, StyleSheet, Text, View } from 'react-native';
+import { FlatList, RefreshControl, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { AppButton } from '@/components/AppButton';
 import { FadeInView } from '@/components/FadeInView';
 import { GlassPanel } from '@/components/GlassPanel';
 import { LottieAnim } from '@/components/LottieAnim';
+import { PressableScale } from '@/components/PressableScale';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { SuitIcon, suitColorOnDark } from '@/components/SuitIcon';
 import { SUIT_NAMES } from '@/game/deck';
@@ -40,11 +41,13 @@ function GameRow({ item, index }: { item: HistoryItem; index: number }) {
   const label = `${item.mode === 'online' ? 'Online game. ' : ''}${item.humanWon ? 'Won' : 'Lost'}. ${formatDate(item.createdAt)}. Bid ${item.bid} by ${item.bidderName}. Rang ${SUIT_NAMES[item.rangSuit]}. Tricks ${item.tricksWon.teamA} to ${item.tricksWon.teamB}.`;
   return (
     <FadeInView from="up" distance={12} delay={Math.min(index, 8) * 40}>
-      <Pressable
+      <PressableScale
         onPress={() => router.push({ pathname: '/history/[id]', params: { id: item.id } })}
-        accessibilityRole="button"
+        haptic="tap"
+        scaleTo={0.97}
         accessibilityLabel={label}
-        style={({ pressed }) => [styles.row, pressed && { opacity: 0.75 }]}>
+        accessibilityHint="Opens the trick-by-trick details"
+        contentStyle={styles.row}>
         <View style={[styles.badge, { backgroundColor: item.humanWon ? 'rgba(61,214,140,0.18)' : 'rgba(239,90,95,0.18)' }]}>
           <Text style={[typography.micro, { color: item.humanWon ? colors.success : colors.danger }]}>{item.humanWon ? 'Won' : 'Lost'}</Text>
         </View>
@@ -71,7 +74,7 @@ function GameRow({ item, index }: { item: HistoryItem; index: number }) {
           </Text>
           <MaterialCommunityIcons name="chevron-right" size={20} color={colors.textDim} />
         </View>
-      </Pressable>
+      </PressableScale>
     </FadeInView>
   );
 }

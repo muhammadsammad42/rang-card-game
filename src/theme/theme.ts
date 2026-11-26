@@ -26,6 +26,10 @@ export const colors = {
   goldLight: '#F3DB97',
   goldDeep: '#9C7A2E',
   goldGlow: 'rgba(217, 182, 93, 0.35)',
+  /** The interactive accent: playable cards, drop zone, active turn ring. */
+  accent: '#F3C969',
+  accentGlow: 'rgba(243, 201, 105, 0.55)',
+  accentSoft: 'rgba(243, 201, 105, 0.16)',
 
   // Text
   ivory: '#F5F0E3',
@@ -51,6 +55,8 @@ export const colors = {
   glassBorder: 'rgba(217, 182, 93, 0.28)',
   hairline: 'rgba(255, 255, 255, 0.08)',
   scrim: 'rgba(3, 6, 12, 0.72)',
+  /** Darkens a card that cannot be played (≈45 % brightness, without making it see-through). */
+  cardDim: 'rgba(6, 10, 19, 0.56)',
 
   // Playing cards
   cardFace: '#FBF8F1',
@@ -85,6 +91,7 @@ export const spacing = {
 } as const;
 
 export const radii = {
+  xs: 4,
   sm: 6,
   md: 10,
   lg: 16,
@@ -144,6 +151,8 @@ export const motion = {
   slow: 420,
   deal: 70, // stagger between dealt cards
   trickHold: 900, // how long a finished trick stays visible before sweeping
+  press: 0.95, // scale of a pressed button / chip
+  spring: { damping: 15, stiffness: 320 },
 } as const;
 
 export const theme = { colors, gradients, spacing, radii, typography, shadows, motion };
