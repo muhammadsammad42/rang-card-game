@@ -348,3 +348,130 @@ The engine and the tests read these constants, so changing one changes the behav
   Timers and tap handlers read them to get the current state without re-subscribing.
 - **Reanimated shared values** are written with `.set(...)` from JavaScript (effects and handlers) and read
   with `.value` inside worklets (`useAnimatedStyle`, gesture callbacks).
+
+---
+
+## 12. Online multiplayer (host-authoritative rooms)
+
+### The idea
+
+The engine (`src/game/*`) is reused **unchanged**. One phone, the **host** (who created the room), runs it
+and is the only writer of the game state. Every other phone sends *requests* and renders what the host
+publishes. Bots for empty or abandoned seats also run on the host, using the same `ai.ts`.
+
+```
+ Player's phone                         Firestore                          Host's phone
+ tap a card
+  → useOnline().move()
+     (checked locally with the engine
+      on my view → instant feedback)
+  → addDoc rooms/{code}/actions ─────▶ action {status:'pending',
+                                          version, uid, type, cardId}
+                                                          ─────────────▶ listenPendingActions
+                                                                         HostController.handleAction:
+                                                                          1 seated? 2 stale? 3 engine.applyAction
+                                                                         version++ → ONE batch write:
+                                        rooms/{code}             ◀──────  publicState (no secrets)
+                                        rooms/{code}/hands/{uid} ◀──────  each human's own cards
+                                        actions/{id}.status      ◀──────  'applied' | 'rejected' + reason
+ onSnapshot(room) + onSnapshot(my hand) ◀──
+  → netReducer shows them only as a matching-version pair
+  → toLocalView (rotate: I am South, my team is "A")
+  → the existing Table / Hand / ActionBar re-render and animate
+```
+
+### Firestore documents (`src/online/types.ts`)
+
+| Document | Written by | Read by | Contents |
+|---|---|---|---|
+| `rooms/{code}` | host only | signed-in users | `hostUid`, `status` (lobby / playing / handOver / closed), `seats[4]` (uid, name, isBot, team, replacedUid), `publicState`, `notice`, `closedReason` |
+| `rooms/{code}/players/{uid}` | that player | signed-in users | name, `wantsSeat`, `heartbeat` counter, timestamps |
+| `rooms/{code}/hands/{uid}` | host | **only that player** | the player's cards (+ the face-down Rang card for the bidder) |
+| `rooms/{code}/actions/{id}` | the requesting player (create); host (status) | signed-in users | `uid`, `type`, `value`/`cardId`, `version`, `status`, `reason` |
+
+**What is never public.** `protocol.toPublicState` never publishes:
+- anyone's hand or the undealt stock;
+- the shuffle seed (`handId` is a separate random number);
+- the hidden Rang, until it is revealed (`rangPlaced: true` tells clients a face-down card exists).
+
+The tests check every single write of whole games for leaks.
+
+### Validation and safety
+
+- **Seat check:** the sender's uid must own a seat. Bots and replaced players can't act.
+- **Stale check:** each request carries the `version` the player was looking at. If it is older than the
+  version at which the current turn began, it is rejected ("based on an old view of the table").
+- **Engine check:** `applyAction` decides legality (turn, follow suit, who may reveal…). Its error text is
+  sent back as the rejection reason and shown as a toast and inline message.
+- **Double taps:** the client locks input until a new version arrives, and the host would reject a repeat
+  anyway (it's no longer that player's turn).
+- **Seat races:** players *request* seats in their player document, and the host grants them in order
+  (`assignSeatRequests`). If two players tap the same seat, only the first gets it.
+
+### Presence and disconnects
+
+- Every phone bumps a `heartbeat` counter every 10 s. Others watch for *changes* using their own clock, so
+  clocks that differ between phones don't matter.
+- **During a game:** a non-host player silent for 30 s (or whose player document disappeared) is replaced
+  by a bot. Everyone gets a toast through `room.notice`. At the next hand the host gives the seat back if
+  that player has reconnected (`restoreReturning`). While replaced, the player can still watch.
+- **In the lobby:** a silent or departed player's seat is simply freed.
+- **Host:** if the host leaves, the room is marked `closed` ("Host left the room"). If the host's heartbeat
+  stops for 40 s, every client closes the room itself. Either way, players return to Home.
+- **Background / resume:** returning to the app re-attaches every listener and sends a heartbeat (`resubscribe`).
+- **Offline:** NetInfo shows an offline banner, the online buttons are disabled with a reason, and
+  single-player is unaffected.
+- **Cleanup:** leaving the room, or the online section (whose layout owns the provider), unsubscribes every
+  listener and clears every timer.
+
+### History for online hands
+
+When a hand ends, **each human's device** saves its own record to `games` (`useOnlineHistory`), from its
+own point of view (seat 0 = me). The record adds `mode: "online"`, `roomCode` and `botSeats`;
+`playerNames` lists all four names. History shows an **Online** badge, and History Detail lists the
+players, with bots marked.
+
+### Security rules (`firestore.rules`)
+
+- **`games`:** unchanged; works without sign-in.
+- **Rooms:** require Anonymous Auth.
+  - Only the room's `hostUid` may update the room or write hands.
+  - Each player may write only their own player document.
+  - Players may create actions only with their own uid and status `pending`.
+  - The host may change only `status` and `reason` on an action.
+  - A hand document is readable only by its owner.
+- **Known limitation:** without Cloud Functions there is no trusted server, so the host's phone holds the
+  full state in memory. A modified host app could cheat. The rules still stop every *other* player from
+  seeing hidden cards.
+
+### New files
+
+| File | Purpose |
+|---|---|
+| `src/services/auth.ts` | Anonymous sign-in. React Native persistence with AsyncStorage (in-memory on web, so each browser tab is a different player). `ensureSignedIn`, `authErrorMessage`. |
+| `src/types/firebase-auth-rn.d.ts` | Declares `getReactNativePersistence` (exported by Firebase's React Native build but missing from its default typings). |
+| `src/online/types.ts` | `RoomDoc`, `RoomSeat`, `PublicState`, `PlayerDoc`, `HandDoc`, `ActionDoc`. |
+| `src/online/roomCode.ts` | `generateRoomCode` (no 0/O/1/I/L), `normalizeRoomCode`, `roomCodeError`. |
+| `src/online/protocol.ts` | `toPublicState`, `handDocFor`, `toGameAction`, the seat helpers (`assignSeatRequests`, `replaceWithBot`, `restoreReturning`, `staleSeats`), and `toLocalView` (rotation + team swap). |
+| `src/online/HostController.ts` | The authoritative loop: `startGame`, `handleAction`, `hostMove`, `finishDeal`, `botToAct`/`playBot`, `nextHand`, `restartMatch`, `replaceDisconnected`, `close`. Writes through a `HostStore` (Firestore, or a fake in tests) in ordered batches. |
+| `src/online/roomService.ts` | Firestore I/O: `createRoom` (transaction, unique code), `joinRoom` (clear errors), `requestSeat`, `heartbeat`, `leaveRoom`, `sendAction`, the listeners, and `firestoreHostStore`. |
+| `src/online/OnlineRoomProvider.tsx` | Context for the online screens: sign-in, create/join/leave, listeners merged by `netReducer`, heartbeat and presence, host timers (deal, bots, disconnects), local move validation, `useOnline()`. |
+| `src/online/useTableDisplay.ts` | Trick hold/sweep and the reveal/collect events for network states (mirrors GameProvider so single-player stays untouched). |
+| `src/online/useOnlineHistory.ts` | Saves each online hand to `games` from this player's view. |
+| `src/app/online/_layout.tsx` | The online section's Stack; owns the `OnlineRoomProvider`. |
+| `src/app/online/menu.tsx` | Create Room / Join Room (code validation, offline and not-configured states, Lottie busy overlay). |
+| `src/app/online/lobby.tsx` | Room code + Copy/Share, mini table of seats (team colours, host crown, connection dots), tap to sit, host bot controls, Start Game, Leave. |
+| `src/app/online/game.tsx` | The online table: same components as single-player, "Waiting for <name>…", room code + connection dot, host-only Next Hand, a leave confirmation, the spectator banner. |
+| `src/components/OfflineBanner.tsx`, `ConnectionDot.tsx` | Offline strip; green / amber / red connection indicator. |
+| `src/hooks/useIsOnline.ts` | NetInfo connectivity. |
+| `src/online/__tests__/online.test.ts` | 19 tests with a fake Firestore store (listed in `docs/RUBRIC_CHECKLIST.md`). |
+| `firestore.rules`, `firebase.json`, `.firebaserc` | Security rules + Firebase CLI config. |
+
+**Changed files:** small, **additive** changes only. The single-player provider and the engine are untouched.
+- Home (`index.tsx`) has the Play vs Bots / Play Online buttons.
+- `_layout.tsx` has the `online` route.
+- `TopBar` has optional `leftIcon`/`subtitle` props.
+- `ResultModal` has optional `canContinue`/`homeLabel` props.
+- `historyService` has an optional `online` argument.
+- The History screens show the badge and the player list.
+- `firebase.ts` has `getFirebaseApp`.

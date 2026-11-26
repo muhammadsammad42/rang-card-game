@@ -1,6 +1,6 @@
 /**
  * index.tsx — the Home screen: logo + ambient LottieFiles animation, Continue
- * / New Game / History / Settings, and a summary of local stats.
+ * / Play vs Bots / Play Online / History / Settings, and a summary of local stats.
  */
 import { router } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -14,6 +14,7 @@ import { LottieAnim } from '@/components/LottieAnim';
 import { SuitIcon } from '@/components/SuitIcon';
 import { useGame } from '@/context/GameProvider';
 import { useSettings } from '@/context/SettingsProvider';
+import { useIsOnline } from '@/hooks/useIsOnline';
 import { useLayout } from '@/hooks/useLayout';
 import { colors, gradients, spacing, typography } from '@/theme/theme';
 
@@ -30,6 +31,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { contentWidth, compact } = useLayout();
   const { game, startNewMatch } = useGame();
+  const online = useIsOnline();
   const { stats, settings } = useSettings();
 
   const winRate = stats.handsPlayed > 0 ? `${Math.round((stats.handsWon / stats.handsPlayed) * 100)}%` : '—';
@@ -66,15 +68,26 @@ export default function HomeScreen() {
           {game && game.phase !== 'HAND_OVER' ? (
             <>
               <AppButton label={`Continue · Hand ${game.handNumber}`} icon="play" size="lg" onPress={() => router.push('/game')} />
-              <AppButton label="New Game" icon="cards-playing-outline" variant="secondary" onPress={newGame} />
+              <AppButton label="Play vs Bots" icon="robot" variant="secondary" onPress={newGame} />
             </>
           ) : game ? (
             <>
               <AppButton label="Back to the table" icon="play" size="lg" onPress={() => router.push('/game')} />
-              <AppButton label="New Game" icon="cards-playing-outline" variant="secondary" onPress={newGame} />
+              <AppButton label="Play vs Bots" icon="robot" variant="secondary" onPress={newGame} />
             </>
           ) : (
-            <AppButton label="New Game" icon="cards-playing-outline" size="lg" onPress={newGame} />
+            <AppButton label="Play vs Bots" icon="robot" size="lg" onPress={newGame} />
+          )}
+          <AppButton
+            label="Play Online"
+            icon="account-group"
+            variant="secondary"
+            disabled={!online}
+            onPress={() => router.push('/online/menu')}
+            accessibilityHint="Create or join a room to play with friends on their phones"
+          />
+          {!online && (
+            <Text style={[typography.caption, styles.offline]}>You are offline — online play is unavailable, but you can still play vs bots.</Text>
           )}
           <View style={styles.row}>
             <AppButton label="History" icon="history" variant="secondary" onPress={() => router.push('/history')} style={styles.flex} />
@@ -111,6 +124,7 @@ const styles = StyleSheet.create({
   buttons: { gap: spacing.md },
   row: { flexDirection: 'row', gap: spacing.md },
   flex: { flex: 1 },
+  offline: { color: colors.warning, textAlign: 'center' },
   stats: { gap: spacing.md },
   statRow: { flexDirection: 'row', justifyContent: 'space-between' },
   stat: { alignItems: 'center', flex: 1 },

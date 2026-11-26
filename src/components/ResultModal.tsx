@@ -28,6 +28,10 @@ interface Props {
   onNextHand: () => void;
   onRestartMatch: () => void;
   onHome: () => void;
+  /** Online: only the host may deal the next hand; others see a waiting message. Default true. */
+  canContinue?: boolean;
+  /** Label for the Home button (online: "Leave Room"). */
+  homeLabel?: string;
 }
 
 function Row({ label, children }: { label: string; children: ReactNode }) {
@@ -39,7 +43,17 @@ function Row({ label, children }: { label: string; children: ReactNode }) {
   );
 }
 
-export function ResultModal({ game, players, humanSeat, saveStatus, onNextHand, onRestartMatch, onHome }: Props) {
+export function ResultModal({
+  game,
+  players,
+  humanSeat,
+  saveStatus,
+  onNextHand,
+  onRestartMatch,
+  onHome,
+  canContinue = true,
+  homeLabel = 'Home',
+}: Props) {
   const { height } = useWindowDimensions();
   const r = game.result;
   if (!r) return null;
@@ -129,13 +143,23 @@ export function ResultModal({ game, players, humanSeat, saveStatus, onNextHand, 
 
         <SaveLine status={saveStatus} />
 
-        <View style={styles.buttons}>
-          <AppButton label="Next Hand" icon="cards-playing-outline" onPress={onNextHand} />
-          <View style={styles.buttonRow}>
-            <AppButton label="Restart Match" variant="secondary" size="sm" onPress={onRestartMatch} style={styles.flex} />
-            <AppButton label="Home" variant="secondary" size="sm" icon="home-outline" onPress={onHome} style={styles.flex} />
+        {canContinue ? (
+          <View style={styles.buttons}>
+            <AppButton label="Next Hand" icon="cards-playing-outline" onPress={onNextHand} />
+            <View style={styles.buttonRow}>
+              <AppButton label="Restart Match" variant="secondary" size="sm" onPress={onRestartMatch} style={styles.flex} />
+              <AppButton label={homeLabel} variant="secondary" size="sm" icon="home-outline" onPress={onHome} style={styles.flex} />
+            </View>
           </View>
-        </View>
+        ) : (
+          <View style={styles.buttons}>
+            <View style={styles.waiting}>
+              <LottieAnim name="loading" style={{ width: 34, height: 34 }} />
+              <Text style={[typography.label, { color: colors.textMuted }]}>Waiting for the host to deal the next hand…</Text>
+            </View>
+            <AppButton label={homeLabel} variant="secondary" size="sm" icon="exit-run" onPress={onHome} />
+          </View>
+        )}
       </ScrollView>
     </Overlay>
   );
@@ -196,5 +220,6 @@ const styles = StyleSheet.create({
   saveLine: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
   buttons: { gap: spacing.sm },
   buttonRow: { flexDirection: 'row', gap: spacing.sm },
+  waiting: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: spacing.sm },
   flex: { flex: 1 },
 });

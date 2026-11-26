@@ -1,0 +1,71 @@
+rules_version = '2';
+
+// Firestore security rules for Rang.
+//
+//   games/{id}                  game history (single-player + online) — unchanged
+//   rooms/{code}                online room: only its host may write
+//   rooms/{code}/players/{uid}  presence + seat request: only that player may write
+//   rooms/{code}/hands/{uid}    private cards: host writes, ONLY that player reads
+//   rooms/{code}/actions/{id}   move requests: players create their own, host resolves
+//
+// Known limitation (host-authoritative design without Cloud Functions): the
+// host's phone holds the full game state in memory, so a modified host app
+// could cheat. Other players can never read each other's hands.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---- Game history (works without sign-in, like before) ----
+    match /games/{gameId} {
+      allow read: if true;
+      allow create: if request.resource.data.keys().hasAll(['deviceId', 'bid', 'winnerTeam'])
+                    && request.resource.data.bid is int;
+      allow update, delete: if false;
+    }
+
+    // ---- Online rooms (require Anonymous Auth) ----
+    function signedIn() {
+      return request.auth != null;
+    }
+    function roomData(code) {
+      return get(/databases/$(database)/documents/rooms/$(code)).data;
+    }
+    function isHost(code) {
+      return signedIn() && roomData(code).hostUid == request.auth.uid;
+    }
+
+    match /rooms/{code} {
+      allow read: if signedIn();
+      allow create: if signedIn()
+                    && request.resource.data.hostUid == request.auth.uid
+                    && request.resource.data.status == 'lobby';
+      allow update: if signedIn()
+                    && resource.data.hostUid == request.auth.uid
+                    && request.resource.data.hostUid == resource.data.hostUid;
+      allow delete: if false;
+
+      match /players/{uid} {
+        allow read: if signedIn();
+        allow create, update: if signedIn() && request.auth.uid == uid
+                              && request.resource.data.uid == uid;
+        allow delete: if signedIn() && (request.auth.uid == uid || isHost(code));
+      }
+
+      match /hands/{uid} {
+        allow read: if signedIn() && request.auth.uid == uid;
+        allow write: if isHost(code);
+      }
+
+      match /actions/{actionId} {
+        allow read: if signedIn();
+        allow create: if signedIn()
+                      && request.resource.data.uid == request.auth.uid
+                      && request.resource.data.status == 'pending';
+        // The host may only set the result fields.
+        allow update: if isHost(code)
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reason']);
+        allow delete: if false;
+      }
+    }
+  }
+}

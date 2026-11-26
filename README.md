@@ -38,6 +38,11 @@ drawn entirely in code.
   - If saving fails, the hand goes to an offline queue that retries later.
   - A History screen with stats, pull-to-refresh, and loading, empty and error states.
   - A History Detail screen.
+- **Online multiplayer rooms**:
+  - 2–4 players on their own phones, with bots filling empty seats;
+  - 6-character room codes, a lobby with seats and Copy/Share;
+  - host-authoritative play using the same engine, so it plays exactly like offline;
+  - disconnect handling (a bot takes over the seat), and online games saved to History with an "Online" badge.
 - **Responsive**: works on small phones up to tablets, respects safe areas, and is accessible (labels,
   contrast, readable sizes).
 
@@ -109,28 +114,51 @@ History screen. To set up your own project:
    ```
 
 5. Restart the dev server with `npx expo start --clear`, so the new variables are picked up.
-6. **Publish these security rules** (Firestore → Rules → Publish). Do this before your demo: *test mode*
-   rules expire 30 days after the database was created, and after that every save fails (games would only
-   be queued). These rules let the app create and read game documents but not change or delete them:
+6. **Enable Anonymous sign-in** (needed for online play): Firebase Console → **Build → Authentication** →
+   **Get started** → **Sign-in method** → **Anonymous** → **Enable** → **Save**.
+7. **Publish the security rules** in [`firestore.rules`](firestore.rules). Do this before your demo: *test
+   mode* rules expire 30 days after the database was created, and after that every save fails.
+   - **Console:** Firestore Database → **Rules** → replace everything with the contents of `firestore.rules`
+     → **Publish**.
+   - **or CLI:** `npx firebase-tools login`, then `npx firebase-tools deploy --only firestore:rules`
+     (`firebase.json` and `.firebaserc` are already set up).
 
-   ```
-   rules_version = '2';
-   service cloud.firestore {
-     match /databases/{database}/documents {
-       match /games/{gameId} {
-         allow read: if true;
-         allow create: if request.resource.data.keys().hasAll(['deviceId', 'bid', 'winnerTeam'])
-                       && request.resource.data.bid is int;
-         allow update, delete: if false;
-       }
-     }
-   }
-   ```
-
-   These rules are for a student project. A production app would add Firebase Authentication and restrict
-   reads to the owner.
+   The `games` rule is the same as before (history still saves without signing in). The room rules let only a
+   room's host write the room and the private hands, let each player read **only their own** hand, and let
+   players create move requests only for themselves.
 
 `.env` is git-ignored, so your keys are never committed.
+
+## Play online (multiplayer rooms)
+
+Two to four players on their own phones, with bots in any empty seats.
+
+1. **Host:** Home → **Play Online** → **Create Room**. Share the 6-character code (Copy / Share buttons).
+2. **Friends:** Home → **Play Online** → type the code → **Join Room**. Everyone taps an empty seat to sit
+   down; partners sit opposite.
+3. The host can **Add bot** to empty seats (or remove bots), then taps **Start Game** once all four seats
+   are filled.
+4. Everyone sees the table from their own seat (you are always at the bottom). When it's someone else's
+   turn you'll see "Waiting for <name>…". After each hand only the host can deal the next one.
+
+**How it works (host-authoritative).** The host's phone runs the same game engine as single-player and is
+the only device that writes the game state:
+- other players send *move requests*;
+- the host checks each one with the engine (rejected moves come back with a reason);
+- the host publishes the new public state and each player's private hand.
+
+Bots in empty seats play on the host's phone. If a player's phone goes silent for about 30 seconds, a bot
+takes over their seat until the next hand. If the host leaves, the room closes for everyone.
+
+**Known limitation:** without Cloud Functions, the host's phone holds the full game state (including all
+hands) in memory, so a tampered host app could cheat. Other players can never read each other's cards.
+
+**Testing with several players:**
+- **Phone + emulator:** run `npx expo start`, open the app on the Android emulator (press `a`) and on your
+  phone (scan the QR code with Expo Go). Create the room on one and join from the other.
+- **Extra players in the browser:** press `w` in the Expo terminal (or open `http://localhost:8081`). Each
+  browser tab signs in as a different anonymous player, so 2 tabs + 2 phones make 4 humans. The web version
+  is only meant for testing; the app targets Android and iOS.
 
 ## Folder structure
 
@@ -142,12 +170,15 @@ docs/
   PROJECT_GUIDE.md   file-by-file guide, state machine, data flow (for the viva)
   RUBRIC_CHECKLIST.md  rubric criterion → features/files
 src/
-  app/               Expo Router screens: _layout, index (Home), game, settings, history/index, history/[id]
+  app/               Expo Router screens: _layout, index (Home), game, settings, history/index, history/[id],
+                     online/_layout, online/menu, online/lobby, online/game
   components/        UI building blocks (Card, Hand, Table, Seat, TrickArea, BiddingPanel, …)
   context/           GameProvider (useReducer + bots), SettingsProvider
   game/              pure engine: types, deck, rules, rulesConfig, engine, ai, players, __tests__/
-  hooks/             useLayout (responsive sizes), useFeedback (haptics)
-  services/          firebase, historyService (Firestore + offline queue), storage (AsyncStorage)
+  hooks/             useLayout (responsive sizes), useFeedback (haptics), useIsOnline (NetInfo)
+  online/            multiplayer: protocol, HostController, roomService, OnlineRoomProvider, roomCode, __tests__/
+  services/          firebase, auth (anonymous), historyService (Firestore + offline queue), storage (AsyncStorage)
+firestore.rules      Firestore security rules (history + online rooms)
   theme/             theme.ts (design tokens), animations.ts (Lottie registry)
   utils/             format and status text helpers
 ```

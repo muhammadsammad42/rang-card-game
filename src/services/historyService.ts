@@ -41,7 +41,15 @@ export interface TrickLogEntry {
 }
 
 /** The document saved for every finished hand. */
-export interface GameRecord {
+/** Extra fields saved for online games (absent on single-player records). */
+export interface OnlineRecordInfo {
+  mode: 'online';
+  roomCode: string;
+  /** Seats (from this player's point of view, 0 = me) that were played by bots. */
+  botSeats: number[];
+}
+
+export interface GameRecord extends Partial<OnlineRecordInfo> {
   playerName: string;
   deviceId: string;
   /** Milliseconds since epoch on the device (used for sorting; queued games keep their real time). */
@@ -114,7 +122,13 @@ function logEntry(t: TrickRecord): TrickLogEntry {
 }
 
 /** Builds the Firestore record for a finished hand. */
-export function buildRecord(game: GameState, players: PlayerProfile[], deviceId: string, durationSeconds: number): GameRecord {
+export function buildRecord(
+  game: GameState,
+  players: PlayerProfile[],
+  deviceId: string,
+  durationSeconds: number,
+  online: OnlineRecordInfo | null = null,
+): GameRecord {
   const r = game.result!;
   return {
     playerName: players[0].name,
@@ -137,6 +151,7 @@ export function buildRecord(game: GameState, players: PlayerProfile[], deviceId:
     durationSeconds,
     playerNames: players.map((p) => p.name),
     trickLog: game.completedTricks.map(logEntry),
+    ...(online ?? {}),
   };
 }
 
@@ -158,10 +173,15 @@ async function upload(id: string, record: GameRecord): Promise<void> {
 }
 
 /** Saves a finished hand: to the cloud if possible, otherwise to the local queue. */
-export async function saveHandResult(game: GameState, players: PlayerProfile[], durationSeconds: number): Promise<SaveStatus> {
+export async function saveHandResult(
+  game: GameState,
+  players: PlayerProfile[],
+  durationSeconds: number,
+  online: OnlineRecordInfo | null = null,
+): Promise<SaveStatus> {
   if (!game.result) return 'offline';
   const deviceId = await getDeviceId();
-  const record = buildRecord(game, players, deviceId, durationSeconds);
+  const record = buildRecord(game, players, deviceId, durationSeconds, online);
   const id = `${deviceId}-${record.clientCreatedAt}`;
   if (!isFirebaseConfigured) {
     await enqueue({ id, record });

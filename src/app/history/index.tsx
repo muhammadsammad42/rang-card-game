@@ -37,7 +37,7 @@ function Stat({ label, value }: { label: string; value: string }) {
 }
 
 function GameRow({ item, index }: { item: HistoryItem; index: number }) {
-  const label = `${item.humanWon ? 'Won' : 'Lost'}. ${formatDate(item.createdAt)}. Bid ${item.bid} by ${item.bidderName}. Rang ${SUIT_NAMES[item.rangSuit]}. Tricks ${item.tricksWon.teamA} to ${item.tricksWon.teamB}.`;
+  const label = `${item.mode === 'online' ? 'Online game. ' : ''}${item.humanWon ? 'Won' : 'Lost'}. ${formatDate(item.createdAt)}. Bid ${item.bid} by ${item.bidderName}. Rang ${SUIT_NAMES[item.rangSuit]}. Tricks ${item.tricksWon.teamA} to ${item.tricksWon.teamB}.`;
   return (
     <FadeInView from="up" distance={12} delay={Math.min(index, 8) * 40}>
       <Pressable
@@ -53,7 +53,14 @@ function GameRow({ item, index }: { item: HistoryItem; index: number }) {
             Bid {item.bid} · {item.bidderName}
             {item.pending ? <Text style={{ color: colors.warning }}>  · not synced</Text> : null}
           </Text>
-          <Text style={[typography.caption, { color: colors.textMuted }]}>{formatDate(item.createdAt)}</Text>
+          <View style={styles.metaLine}>
+            {item.mode === 'online' && (
+              <View style={styles.onlineBadge} accessibilityLabel={`Online game, room ${item.roomCode}`}>
+                <Text style={[typography.micro, { color: colors.info }]}>Online</Text>
+              </View>
+            )}
+            <Text style={[typography.caption, { color: colors.textMuted }]}>{formatDate(item.createdAt)}</Text>
+          </View>
         </View>
         <View style={styles.rowRight}>
           <SuitIcon suit={item.rangSuit} size={18} color={suitColorOnDark(item.rangSuit)} />
@@ -201,4 +208,12 @@ const styles = StyleSheet.create({
   },
   badge: { paddingHorizontal: spacing.sm, paddingVertical: 4, borderRadius: radii.pill, minWidth: 48, alignItems: 'center' },
   rowRight: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  metaLine: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
+  onlineBadge: {
+    paddingHorizontal: 6,
+    paddingVertical: 1,
+    borderRadius: radii.pill,
+    borderWidth: 1,
+    borderColor: colors.info,
+  },
 });
