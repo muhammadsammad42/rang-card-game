@@ -64,7 +64,7 @@ Each rubric criterion mapped to the features and files that satisfy it.
 | Explicit state machine | `types.ts` `Phase`; `docs/PROJECT_GUIDE.md` §2 |
 | Bots only see `PublicView` (no cheating) | `engine.getPublicView`, `ai.ts` |
 | Bot scheduler with cancellable timers; double-tap / stale-action guards | `GameProvider.tsx` |
-| 299 offline Jest tests + 3 live Firestore tests | `src/game/__tests__/`, `src/services/__tests__/` |
+| 318 offline Jest tests (incl. 19 online-layer tests with a fake Firestore) + 3 live Firestore tests | `src/game/__tests__/`, `src/services/__tests__/` |
 
 ## 5. Error handling & stability — 5
 
@@ -107,3 +107,21 @@ The app is connected to Firebase project `rang-card-game-4c317`, `(default)` Fir
 | History Detail with the trick-by-trick log | `src/app/history/[id].tsx` |
 | Works without Firebase and explains it | History "not configured" notice, ResultModal save line |
 | Step-by-step setup + development rules | `README.md` → Firebase setup |
+
+## 8. Extra — Online multiplayer rooms
+
+| Requirement | Where |
+|---|---|
+| Host-authoritative: only the host runs the (unchanged) engine and writes state; others send action requests | `src/online/HostController.ts`, `OnlineRoomProvider.tsx` |
+| Same rules as offline (engine reused, no duplicated logic) | `HostController.handleAction` → `engine.applyAction` |
+| Invalid / out-of-turn / stale / double-tap requests rejected with a reason (toast + inline) | `handleAction` (seat, version, engine); tests in `src/online/__tests__/online.test.ts` |
+| Hidden information never in the public room document; each hand readable only by its owner | `protocol.toPublicState`, `handDocFor`, `firestore.rules`; leak test checks every write of whole games |
+| 2–4 humans + bots in empty seats; bots run on the host with the existing AI | `HostController.addBot/playBot` |
+| Every player sees the table from their own seat (me = South, partner = North) | `protocol.toLocalView` |
+| Firebase Anonymous Auth with AsyncStorage persistence | `src/services/auth.ts` |
+| Room codes: 6 chars, no 0/O/1/I/L, unique (transaction) | `roomCode.ts`, `roomService.createRoom` |
+| Lobby: code + Copy/Share, seats with team colours, host crown, connection status, tap to sit, bots, Start, Leave | `src/app/online/lobby.tsx` |
+| Online table reuses the game components; "Waiting for <name>…"; room code + connection indicator; host-only Next Hand | `src/app/online/game.tsx` |
+| Edge cases: missing/full/started room, seat races, disconnect → bot (+ toast) and seat returned, host leaves → room closes, background resync, offline banner, listener cleanup | `roomService.joinRoom`, `assignSeatRequests`, `replaceDisconnected`, `restoreReturning`, `OnlineRoomProvider` |
+| Online hands saved to `games` with mode/roomCode/player names; Online badge + players in History | `useOnlineHistory.ts`, `historyService`, `src/app/history/*` |
+| Security rules file + publishing steps | `firestore.rules`, README → Firebase setup |
