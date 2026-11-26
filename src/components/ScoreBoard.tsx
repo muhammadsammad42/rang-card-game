@@ -38,14 +38,22 @@ export function TopBar({
   game,
   onPause,
   onPeek,
+  leftIcon = 'pause',
+  leftLabel = 'Pause menu',
+  subtitle,
 }: {
   game: GameState;
   onPause: () => void;
   onPeek: () => void;
+  /** Optional overrides for online play (e.g. a leave button instead of pause). */
+  leftIcon?: IconName;
+  leftLabel?: string;
+  /** Optional element under the score (online: room code + connection). */
+  subtitle?: ReactNode;
 }) {
   return (
     <View style={styles.topBar}>
-      <IconButton icon="pause" label="Pause menu" onPress={onPause} />
+      <IconButton icon={leftIcon} label={leftLabel} onPress={onPause} />
       <View style={styles.center}>
         <Text style={[typography.micro, { color: colors.textMuted }]}>Hand {game.handNumber}</Text>
         <Text style={[typography.heading, { color: colors.ivory }]} accessibilityLabel={`Match score: your team ${game.score.A}, opponents ${game.score.B}`}>
@@ -53,6 +61,7 @@ export function TopBar({
           <Text style={{ color: colors.textDim }}>{'  –  '}</Text>
           <Text style={{ color: colors.teamB }}>{game.score.B} Them</Text>
         </Text>
+        {subtitle}
       </View>
       <IconButton icon="eye-outline" label="Show last trick" onPress={onPeek} disabled={game.completedTricks.length === 0} />
     </View>

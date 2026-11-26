@@ -79,6 +79,7 @@ export default function RootLayout() {
                     <Stack.Screen name="history/index" />
                     <Stack.Screen name="history/[id]" />
                     <Stack.Screen name="settings" />
+                    <Stack.Screen name="online" options={{ gestureEnabled: false }} />
                   </Stack>
                 </GameProvider>
               </ToastProvider>
