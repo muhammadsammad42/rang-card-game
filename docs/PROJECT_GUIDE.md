@@ -26,7 +26,7 @@ work. Each source file also starts with a header comment describing its purpose.
 
 Why it is built this way:
 
-- **The engine is pure TypeScript.** It is easy to test (296 Jest tests) and easy to explain, and it can't
+- **The engine is pure TypeScript.** It is easy to test (299 Jest tests) and easy to explain, and it can't
   break because of UI timing.
 - **The engine is deterministic given a seed.** Every shuffle uses a seeded RNG (`mulberry32`), so the same
   seed always deals the same cards.
