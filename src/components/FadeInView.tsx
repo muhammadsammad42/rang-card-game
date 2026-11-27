@@ -1,6 +1,7 @@
 /**
  * FadeInView.tsx — fades (and optionally slides/zooms) its children in when
- * mounted, using a Reanimated shared value driven from useEffect.
+ * mounted, using a Reanimated shared value driven from useEffect. Respects
+ * "Reduce animations" (content then simply appears).
  *
  * We use this instead of Reanimated's `entering` layout animations because
  * those occasionally stayed stuck at opacity 0 in Expo Go; a plain shared
@@ -9,6 +10,8 @@
 import { ReactNode, useEffect } from 'react';
 import { StyleProp, ViewStyle } from 'react-native';
 import Animated, { Easing, useAnimatedStyle, useSharedValue, withDelay, withTiming } from 'react-native-reanimated';
+
+import { useMotion } from '@/hooks/useMotion';
 
 interface Props {
   children?: ReactNode;
@@ -23,11 +26,17 @@ interface Props {
 }
 
 export function FadeInView({ children, style, from = 'fade', distance = 24, duration = 260, delay = 0, pointerEvents }: Props) {
-  const t = useSharedValue(0);
+  const { reduced } = useMotion();
+  // Reduced motion: appear instantly (no slide / zoom / fade).
+  const t = useSharedValue(reduced ? 1 : 0);
 
   useEffect(() => {
+    if (reduced) {
+      t.set(1);
+      return;
+    }
     t.set(withDelay(delay, withTiming(1, { duration, easing: Easing.out(Easing.cubic) })));
-  }, [t, delay, duration]);
+  }, [t, delay, duration, reduced]);
 
   const animated = useAnimatedStyle(() => {
     const offset = (1 - t.value) * distance;

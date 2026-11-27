@@ -1,24 +1,30 @@
 /**
- * Table.tsx — the felt table: North (partner), West and East seats, the trick
- * area in the middle, the hidden Rang card (top-left), the middle pile
- * (top-right), and the dealing animation. The human (South) sits below the
- * table, represented by the hand and the action bar.
+ * Table.tsx — the felt table: North (partner), West and East seat panels,
+ * the trick area + drag drop-zone in the middle, the Rang card (top-left),
+ * the middle pile with its streak chip (top-right), and the deal animation.
+ * The human (South) sits below the table: the status bar and the hand.
  *
- * All positions are computed from the table's measured size (onLayout), so it
- * adapts to every screen.
+ * Look: a felt gradient, an SVG dot texture, a dark vignette towards the rail
+ * and a faint gold ring marking the trick area. All positions come from the
+ * table's measured size (onLayout), so it adapts to every screen.
  */
 import { LinearGradient } from 'expo-linear-gradient';
-import { useState } from 'react';
+import { memo, useState } from 'react';
 import { LayoutChangeEvent, Platform, StyleSheet, Text, View } from 'react-native';
-import Svg, { Defs, RadialGradient, Rect, Stop } from 'react-native-svg';
+import { AnimatedRef } from 'react-native-reanimated';
+import Svg, { Circle, Defs, Ellipse, Pattern, RadialGradient, Rect, Stop } from 'react-native-svg';
 
 import type { PlayerProfile } from '@/game/players';
 import { partnerOf } from '@/game/rules';
 import type { GameState, Seat as SeatId } from '@/game/types';
 import type { GameEvents, ShownTrick } from '@/context/GameProvider';
-import { colors, gradients, motion, radii, spacing } from '@/theme/theme';
+import { useMotion } from '@/hooks/useMotion';
+import { colors, gradients, motion, radii, spacing, typography } from '@/theme/theme';
 
 import { DealOverlay, Point } from './DealOverlay';
+import { DropZone } from './DropZone';
+import type { DragState } from './Hand';
+import { LottieAnim } from './LottieAnim';
 import { MiddlePile } from './MiddlePile';
 import { RangSlot } from './RangSlot';
 import { Seat } from './Seat';
@@ -32,6 +38,11 @@ interface Props {
   events: GameEvents;
   seatSize: number;
   maxTrickCardWidth: number;
+  /** Centre drop target for drag-to-play (shared with <Hand>). */
+  dropZone: AnimatedRef<View>;
+  dragState: DragState;
+  /** Short streak text for the chip under the middle pile (post-reveal). */
+  streak: string | null;
 }
 
 /** Latest bid/pass of a seat during bidding, for the speech bubble. */
@@ -42,7 +53,46 @@ function bubbleFor(game: GameState, seat: SeatId): string | null {
   return call.value === 'pass' ? 'Pass' : String(call.value);
 }
 
-export function Table({ game, players, humanSeat, shownTrick, events, seatSize, maxTrickCardWidth }: Props) {
+/** Static felt decoration (texture, vignette, trick ring). Memoised: it only changes with the table size. */
+const FeltDecor = memo(function FeltDecor({ w, h, cx, cy, ring }: { w: number; h: number; cx: number; cy: number; ring: number }) {
+  return (
+    <Svg pointerEvents="none" width={w} height={h} style={StyleSheet.absoluteFill}>
+      <Defs>
+        <Pattern id="weave" width={6} height={6} patternUnits="userSpaceOnUse">
+          <Circle cx={1.5} cy={1.5} r={0.7} fill="#ffffff" opacity={0.05} />
+          <Circle cx={4.5} cy={4.5} r={0.6} fill="#000000" opacity={0.12} />
+        </Pattern>
+        <RadialGradient id="spot" cx={cx} cy={cy} rx={w * 0.6} ry={h * 0.45} gradientUnits="userSpaceOnUse">
+          <Stop offset="0" stopColor="#ffffff" stopOpacity={0.1} />
+          <Stop offset="1" stopColor="#ffffff" stopOpacity={0} />
+        </RadialGradient>
+        <RadialGradient id="vignette" cx={w / 2} cy={h / 2} rx={w * 0.78} ry={h * 0.7} gradientUnits="userSpaceOnUse">
+          <Stop offset="0.55" stopColor="#000000" stopOpacity={0} />
+          <Stop offset="1" stopColor="#000000" stopOpacity={0.5} />
+        </RadialGradient>
+      </Defs>
+      <Rect x={0} y={0} width={w} height={h} fill="url(#weave)" />
+      <Rect x={0} y={0} width={w} height={h} fill="url(#spot)" />
+      <Ellipse cx={cx} cy={cy} rx={ring} ry={ring * 0.9} fill="none" stroke={colors.gold} strokeOpacity={0.14} strokeWidth={1.5} />
+      <Ellipse cx={cx} cy={cy} rx={ring + 6} ry={ring * 0.9 + 6} fill="none" stroke={colors.gold} strokeOpacity={0.06} strokeWidth={1} />
+      <Rect x={0} y={0} width={w} height={h} fill="url(#vignette)" />
+    </Svg>
+  );
+});
+
+export function Table({
+  game,
+  players,
+  humanSeat,
+  shownTrick,
+  events,
+  seatSize,
+  maxTrickCardWidth,
+  dropZone,
+  dragState,
+  streak,
+}: Props) {
+  const { reduced } = useMotion();
   const [size, setSize] = useState({ w: 0, h: 0 });
   const onLayout = (e: LayoutChangeEvent) => {
     const { width, height } = e.nativeEvent.layout;
@@ -50,8 +100,8 @@ export function Table({ game, players, humanSeat, shownTrick, events, seatSize, 
   };
 
   const { w, h } = size;
-  const seatW = seatSize + 44;
-  const seatH = seatSize + 44;
+  const seatW = seatSize + 52;
+  const seatH = seatSize + 64;
   // The trick area fills the space below North and between West and East.
   const side = Math.max(120, Math.min(w - 2 * (seatW + 4), h - seatH - spacing.lg));
   const trickCardWidth = Math.min(maxTrickCardWidth, side / 2.6);
@@ -62,46 +112,49 @@ export function Table({ game, players, humanSeat, shownTrick, events, seatSize, 
   const stage = shownTrick ? shownTrick.stage : 'live';
   const sweepTo = shown ? (shown.outcome.type === 'pile' ? 'pile' : shown.winner) : null;
 
-  // Seat centres for the deal animation (South = towards the human's hand, below the felt).
+  // Seat centres (South = towards the human's hand, below the felt).
   const seatPoints: Point[] = [
     { x: w / 2, y: h + 70 },
     { x: 8 + seatW / 2, y: centerY },
-    { x: w / 2, y: 8 + seatSize / 2 },
+    { x: w / 2, y: 8 + seatH / 2 },
     { x: w - 8 - seatW / 2, y: centerY },
   ];
   const dealing = game.phase === 'DEAL_5' || game.phase === 'DEAL_REST';
 
-  const seatProps = (seat: SeatId) => ({
-    player: players[seat],
-    size: seatSize,
-    isTurn: game.turn === seat && !dealing && game.phase !== 'HAND_OVER' && !shownTrick,
-    isDealer: game.dealer === seat,
-    isBidder: game.bidder === seat,
-    cardCount: game.hands[seat].length,
-    bubble: bubbleFor(game, seat),
-  });
+  // Lottie sparkle where the last trick was collected (once per trick; never for the middle pile).
+  const n = game.completedTricks.length;
+  const swept = n > 0 && (!shownTrick || shownTrick.stage === 'sweep') ? game.completedTricks[n - 1] : null;
+  const [sparkleDone, setSparkleDone] = useState(n);
+  const sparkle = !reduced && swept && swept.outcome.type !== 'pile' && sparkleDone !== n ? seatPoints[swept.winner] : null;
+
+  const seatProps = (seat: SeatId) => {
+    const isTurn = game.turn === seat && !dealing && game.phase !== 'HAND_OVER' && !shownTrick;
+    return {
+      player: players[seat],
+      size: seatSize,
+      isTurn,
+      thinking: isTurn && !!players[seat]?.isBot,
+      isDealer: game.dealer === seat,
+      isBidder: game.bidder === seat,
+      cardCount: game.hands[seat].length,
+      bubble: bubbleFor(game, seat),
+    };
+  };
 
   return (
     <View style={styles.rail}>
       <LinearGradient colors={gradients.felt} start={{ x: 0.5, y: 0 }} end={{ x: 0.5, y: 1 }} style={styles.felt} onLayout={onLayout}>
-        {/* soft spotlight (SVG radial gradient) + watermark give the felt some depth */}
-        {h > 0 && (
-          <Svg pointerEvents="none" width={w} height={h} style={StyleSheet.absoluteFill}>
-            <Defs>
-              <RadialGradient id="spot" cx={w / 2} cy={centerY} rx={w * 0.6} ry={h * 0.42} gradientUnits="userSpaceOnUse">
-                <Stop offset="0" stopColor="#ffffff" stopOpacity={0.1} />
-                <Stop offset="1" stopColor="#ffffff" stopOpacity={0} />
-              </RadialGradient>
-            </Defs>
-            <Rect x={0} y={0} width={w} height={h} fill="url(#spot)" />
-          </Svg>
-        )}
-        <Text pointerEvents="none" style={[styles.watermark, { top: centerY - 22 }]}>
+        {h > 0 && <FeltDecor w={w} h={h} cx={w / 2} cy={centerY} ring={side * 0.48} />}
+        <Text pointerEvents="none" style={[styles.watermark, { top: centerY + side * 0.5 - 4 }]}>
           RANG
         </Text>
 
         {w > 0 && (
           <>
+            <View style={[styles.abs, { left: (w - side) / 2, top: centerY - side / 2, width: side, height: side }, styles.center]}>
+              <DropZone size={side * 0.82} zoneRef={dropZone} dragState={dragState} />
+            </View>
+
             <View style={[styles.abs, { top: 8, left: 0, right: 0, alignItems: 'center' }]}>
               <Seat {...seatProps(partnerOf(humanSeat))} tag="Partner" />
             </View>
@@ -123,8 +176,15 @@ export function Table({ game, players, humanSeat, shownTrick, events, seatSize, 
                 cardWidth={trickCardWidth}
               />
             </View>
-            <View style={[styles.abs, { right: spacing.md, top: spacing.md }]}>
+            <View style={[styles.abs, styles.pileCol, { right: spacing.md, top: spacing.md }]}>
               <MiddlePile count={game.pile} cardWidth={trickCardWidth} collectSeq={events.collectSeq} visible={game.rangRevealed} />
+              {streak && (
+                <View style={styles.streak} accessible accessibilityLiveRegion="polite" accessibilityLabel={streak}>
+                  <Text style={[typography.caption, styles.streakText]} numberOfLines={2}>
+                    {streak}
+                  </Text>
+                </View>
+              )}
             </View>
 
             <View style={[styles.abs, { left: (w - side) / 2, top: centerY - side / 2 }]}>
@@ -137,11 +197,24 @@ export function Table({ game, players, humanSeat, shownTrick, events, seatSize, 
                 sweepTo={sweepTo}
               />
             </View>
+
+            {sparkle && (
+              <View pointerEvents="none" style={[styles.abs, { left: sparkle.x - 60, top: Math.min(sparkle.y, h - 40) - 60 }]}>
+                <LottieAnim
+                  key={n}
+                  name="sparkle"
+                  loop={false}
+                  speed={1.8}
+                  style={{ width: 120, height: 120 }}
+                  onFinish={() => setSparkleDone(n)}
+                />
+              </View>
+            )}
           </>
         )}
       </LinearGradient>
 
-      {w > 0 && dealing && (
+      {w > 0 && dealing && !reduced && (
         <DealOverlay
           key={`${game.handNumber}-${game.handSeed}-${game.phase}`}
           dealer={game.dealer}
@@ -167,15 +240,26 @@ const styles = StyleSheet.create({
   },
   felt: { flex: 1, borderRadius: radii.xl + 4, overflow: 'hidden' },
   abs: { position: 'absolute' },
+  center: { alignItems: 'center', justifyContent: 'center' },
+  pileCol: { alignItems: 'flex-end', gap: spacing.xs, maxWidth: 140 },
+  streak: {
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 3,
+    borderRadius: radii.md,
+    backgroundColor: colors.glassStrong,
+    borderWidth: 1,
+    borderColor: colors.gold,
+  },
+  streakText: { color: colors.goldLight, textAlign: 'right' },
   watermark: {
     position: 'absolute',
     left: 0,
     right: 0,
     textAlign: 'center',
     fontFamily: Platform.select({ ios: 'Georgia', default: 'serif' }),
-    fontSize: 40,
+    fontSize: 22,
     fontWeight: '700',
-    letterSpacing: 12,
-    color: 'rgba(217,182,93,0.07)',
+    letterSpacing: 10,
+    color: 'rgba(217,182,93,0.08)',
   },
 });

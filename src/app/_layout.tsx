@@ -17,6 +17,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ToastProvider, useToast } from '@/components/Toast';
 import { GameProvider } from '@/context/GameProvider';
 import { SettingsProvider } from '@/context/SettingsProvider';
+import { useMotion } from '@/hooks/useMotion';
 import { flushQueue } from '@/services/historyService';
 import { colors } from '@/theme/theme';
 
@@ -46,6 +47,26 @@ function StartupSync() {
   return null;
 }
 
+/** The navigator. Screen transitions fade/slide, or switch instantly with "Reduce animations". */
+function AppStack() {
+  const { reduced } = useMotion();
+  return (
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        animation: reduced ? 'none' : 'fade_from_bottom',
+        contentStyle: { backgroundColor: colors.night },
+      }}>
+      <Stack.Screen name="index" />
+      <Stack.Screen name="game" options={{ gestureEnabled: false, animation: reduced ? 'none' : 'fade' }} />
+      <Stack.Screen name="history/index" />
+      <Stack.Screen name="history/[id]" />
+      <Stack.Screen name="settings" />
+      <Stack.Screen name="online" options={{ gestureEnabled: false }} />
+    </Stack>
+  );
+}
+
 export default function RootLayout() {
   // Changing the key remounts every provider, giving a clean slate after a crash.
   const [resetKey, setResetKey] = useState(0);
@@ -68,19 +89,7 @@ export default function RootLayout() {
               <ToastProvider>
                 <StartupSync />
                 <GameProvider>
-                  <Stack
-                    screenOptions={{
-                      headerShown: false,
-                      animation: 'fade_from_bottom',
-                      contentStyle: { backgroundColor: colors.night },
-                    }}>
-                    <Stack.Screen name="index" />
-                    <Stack.Screen name="game" options={{ gestureEnabled: false, animation: 'fade' }} />
-                    <Stack.Screen name="history/index" />
-                    <Stack.Screen name="history/[id]" />
-                    <Stack.Screen name="settings" />
-                    <Stack.Screen name="online" options={{ gestureEnabled: false }} />
-                  </Stack>
+                  <AppStack />
                 </GameProvider>
               </ToastProvider>
             </SettingsProvider>

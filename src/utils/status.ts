@@ -1,50 +1,74 @@
 /**
- * status.ts — builds the human-readable status lines shown in the action bar
- * (whose turn it is, who won the trick, the middle-pile streak).
+ * status.ts — builds the short, human-readable messages for the status bar
+ * (whose turn it is, who won the trick) and the middle-pile streak chip.
+ *
+ * `statusInfo` also returns a `tone`, which the status bar turns into an icon
+ * and colour (your turn = gold hand, waiting = clock, trick won = trophy…).
  */
-import { SUIT_NAMES } from '@/game/deck';
+import { suitText as suit } from './handView';
 import type { PlayerProfile } from '@/game/players';
 import { canFollowSuit, ledSuit } from '@/game/rules';
 import { STREAK_TO_COLLECT } from '@/game/rulesConfig';
 import type { GameState, Seat, TrickRecord } from '@/game/types';
 
-export function statusLine(
+export type StatusTone = 'turn' | 'wait' | 'win' | 'lose' | 'pile' | 'deal' | 'info';
+
+export interface StatusInfo {
+  text: string;
+  tone: StatusTone;
+}
+
+export function statusInfo(
   game: GameState,
   players: PlayerProfile[],
   human: Seat,
   shown: TrickRecord | null,
   canReveal: boolean,
-): string {
+): StatusInfo {
   const name = (s: Seat) => (s === human ? 'You' : players[s].name);
   switch (game.phase) {
     case 'DEAL_5':
     case 'DEAL_REST':
-      return game.dealer === human ? 'You are dealing…' : `${players[game.dealer].name} is dealing…`;
+      return { text: game.dealer === human ? 'You are dealing…' : `${players[game.dealer].name} is dealing…`, tone: 'deal' };
     case 'BIDDING':
-      return game.turn === human ? 'Your bid' : `${players[game.turn].name} is bidding…`;
+      return game.turn === human
+        ? { text: 'Your bid', tone: 'turn' }
+        : { text: `Waiting for ${players[game.turn].name} to bid…`, tone: 'wait' };
     case 'CHOOSE_RANG':
-      return game.bidder === human ? 'Choose your Rang' : `${players[game.bidder!].name} is choosing the Rang in secret…`;
+      return game.bidder === human
+        ? { text: 'Choose your Rang', tone: 'turn' }
+        : { text: `${players[game.bidder!].name} is choosing the Rang in secret…`, tone: 'wait' };
     case 'HAND_OVER':
-      return 'Hand complete';
+      return { text: 'Hand complete', tone: 'info' };
     case 'PLAYING': {
       if (shown) {
         const who = name(shown.winner);
         const verb = shown.winner === human ? 'win' : 'wins';
-        if (shown.outcome.type === 'pile') return `${who} ${verb} trick ${shown.number} → middle pile`;
+        const ours = shown.winner % 2 === human % 2;
+        if (shown.outcome.type === 'pile') return { text: `${who} ${verb} trick ${shown.number} → middle pile`, tone: 'pile' };
         if (shown.outcome.type === 'collected')
-          return `${who} ${verb} trick ${shown.number} — ${shown.outcome.count} trick${shown.outcome.count === 1 ? '' : 's'} collected!`;
-        return `${who} ${verb} trick ${shown.number}`;
+          return {
+            text: `${who} ${verb} trick ${shown.number} — ${shown.outcome.count} trick${shown.outcome.count === 1 ? '' : 's'} collected!`,
+            tone: ours ? 'win' : 'lose',
+          };
+        return { text: `${who} ${verb} trick ${shown.number}`, tone: ours ? 'win' : 'lose' };
       }
-      if (game.turn !== human) return `${players[game.turn].name} is thinking…`;
+      if (game.turn !== human) return { text: `Waiting for ${players[game.turn].name}…`, tone: 'wait' };
       const led = ledSuit(game.currentTrick);
-      if (!led) return game.bidder === human && !game.rangRevealed ? 'Your lead — play any card (or reveal your Rang)' : 'Your lead — play any card';
-      if (canFollowSuit(game.hands[human], game.currentTrick)) return `Your turn — follow ${SUIT_NAMES[led]}`;
-      return `No ${SUIT_NAMES[led]} — play any card${canReveal ? ' or reveal the Rang' : ''}`;
+      if (!led) return { text: 'Your lead: play any card', tone: 'turn' };
+      if (canFollowSuit(game.hands[human], game.currentTrick)) return { text: `Your turn: follow ${suit(led)}`, tone: 'turn' };
+      // canReveal is shown by the pulsing Reveal button + hint, so the status stays short.
+      return { text: canReveal ? `No ${suit(led)}: any card` : `No ${suit(led)}: play any card`, tone: 'turn' };
     }
   }
 }
 
-/** "East won the last trick — one more to collect 3 tricks" (post-reveal only). */
+/** Text-only version of statusInfo (kept for callers that only need the words). */
+export function statusLine(...args: Parameters<typeof statusInfo>): string {
+  return statusInfo(...args).text;
+}
+
+/** "East won the last trick — one more win collects 3 tricks (pile: 2)" (post-reveal only). */
 export function streakLine(game: GameState, players: PlayerProfile[], human: Seat): string | null {
   if (!game.rangRevealed || game.phase !== 'PLAYING' || game.pile === 0 || game.streak.seat === null) return null;
   const s = game.streak.seat;
@@ -53,4 +77,13 @@ export function streakLine(game: GameState, players: PlayerProfile[], human: Sea
   const n = game.pile + remaining;
   const more = remaining === 1 ? 'one more win' : `${remaining} more wins`;
   return `${who} won the last trick — ${more} collects ${n} tricks (pile: ${game.pile})`;
+}
+
+/** Compact version for the chip under the middle pile: "Sana won last · 1 more → 3 tricks". */
+export function streakChip(game: GameState, players: PlayerProfile[], human: Seat): string | null {
+  if (!game.rangRevealed || game.phase !== 'PLAYING' || game.pile === 0 || game.streak.seat === null) return null;
+  const s = game.streak.seat;
+  const who = s === human ? 'You' : players[s].name;
+  const remaining = STREAK_TO_COLLECT - game.streak.count;
+  return `${who} won last · ${remaining} more → ${game.pile + remaining} tricks`;
 }

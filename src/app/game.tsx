@@ -6,14 +6,18 @@
  * Reveal Rang) and your Hand. Phase-specific overlays sit on top: Bidding,
  * Choose Rang, Result, Pause menu and Last-trick peek.
  *
- * Flow of a card play: tap/swipe in <Hand> → onTap/onSwipe here →
- * GameProvider.playCard (validates) → engine reducer → new state → re-render
- * → TrickArea animates the card flying in.
+ * Flow of a card play: tap twice (or drag to the centre) in <Hand> →
+ * useHandController.onPlay → GameProvider.playCard (validates) → engine
+ * reducer → new state → re-render → TrickArea animates the card flying in.
+ *
+ * Highlighting: GameProvider.legalIds (from the engine) → useHandController →
+ * buildHandView gives every card `isPlayable` + a state → <Hand> styles it.
  */
 import { router, useFocusEffect } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { BackHandler, StyleSheet, View } from 'react-native';
+import { useAnimatedRef } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ActionBar } from '@/components/ActionBar';
@@ -26,22 +30,20 @@ import { ResultModal } from '@/components/ResultModal';
 import { InfoStrip, TopBar } from '@/components/ScoreBoard';
 import { Table } from '@/components/Table';
 import { useGame } from '@/context/GameProvider';
-import { sortHand } from '@/game/deck';
 import type { Card } from '@/game/types';
-import { useFeedback } from '@/hooks/useFeedback';
+import { useHandController } from '@/hooks/useHandController';
 import { useLayout } from '@/hooks/useLayout';
 import { gradients, motion, spacing } from '@/theme/theme';
-import { statusLine, streakLine } from '@/utils/status';
+import { statusInfo, streakChip } from '@/utils/status';
 
 export default function GameScreen() {
   const g = useGame();
   const { game, players, humanSeat } = g;
   const layout = useLayout();
   const insets = useSafeAreaInsets();
-  const feedback = useFeedback();
-  /** Selected card, remembered together with the hand it belongs to. */
-  const [selected, setSelected] = useState<{ id: string; hand: string } | null>(null);
   const [peek, setPeek] = useState(false);
+  /** The centre drop zone on the table; <Hand> measures it while a card is dragged. */
+  const dropZone = useAnimatedRef<View>();
 
   const { setActive, pause, startNewMatch } = g;
 
@@ -70,40 +72,10 @@ export default function GameScreen() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const hand = useMemo(() => (game ? sortHand(game.hands[humanSeat]) : []), [game, humanSeat]);
-
-  // A selection only counts while that card is still in the hand (played cards
-  // and new hands drop it automatically — derived, no effect needed).
-  const handKey = game ? `${game.handNumber}:${game.handSeed}` : '';
-  const activeSelection =
-    selected && selected.hand === handKey && hand.some((c) => c.id === selected.id) ? selected.id : null;
-
-  const playing = game?.phase === 'PLAYING';
-  const myPlayTurn = playing && g.isHumanTurn && !g.shownTrick;
-
-  const onTap = useCallback(
-    (card: Card) => {
-      // On your turn, tapping an illegal card explains why (message + shake).
-      if (myPlayTurn && !g.legalIds.has(card.id)) {
-        g.playCard(card.id);
-        return;
-      }
-      if (activeSelection === card.id) {
-        if (g.playCard(card.id)) setSelected(null);
-      } else {
-        setSelected({ id: card.id, hand: handKey });
-        feedback.tap();
-      }
-    },
-    [g, myPlayTurn, activeSelection, feedback, handKey],
-  );
-
-  const onSwipe = useCallback(
-    (card: Card) => {
-      if (g.playCard(card.id)) setSelected(null);
-    },
-    [g],
-  );
+  const myPlayTurn = game?.phase === 'PLAYING' && g.isHumanTurn && !g.shownTrick && !g.paused;
+  const { playCard } = g;
+  const play = useCallback((card: Card) => playCard(card.id), [playCard]);
+  const hand = useHandController({ game, seat: humanSeat, legalIds: g.legalIds, canPlay: !!myPlayTurn, play });
 
   const goHome = useCallback(() => {
     if (router.canGoBack()) router.back();
@@ -113,9 +85,8 @@ export default function GameScreen() {
   if (!game) return <LinearGradient colors={gradients.room} style={styles.screen} />;
 
   const shown = g.shownTrick?.record ?? null;
-  const status = statusLine(game, players, humanSeat, shown, g.canReveal);
-  const streak = streakLine(game, players, humanSeat);
-  const handWidth = layout.contentWidth - spacing.md * 2;
+  const status = statusInfo(game, players, humanSeat, shown, g.canReveal);
+  const handWidth = layout.contentWidth - spacing.sm * 2;
 
   // Deal-in timing for the human's cards (they get every 4th card of the deal).
   const position = (humanSeat - game.dealer + 4) % 4; // 1 = first to receive
@@ -137,6 +108,9 @@ export default function GameScreen() {
           events={g.events}
           seatSize={layout.seatSize}
           maxTrickCardWidth={layout.trickCardWidth}
+          dropZone={dropZone}
+          dragState={hand.dragState}
+          streak={streakChip(game, players, humanSeat)}
         />
         <ActionBar
           game={game}
@@ -144,21 +118,24 @@ export default function GameScreen() {
           humanSeat={humanSeat}
           isMyTurn={g.isHumanTurn && !g.shownTrick && game.phase !== 'DEAL_5' && game.phase !== 'DEAL_REST'}
           status={status}
-          streak={streak}
-          error={g.error}
+          error={g.error ?? hand.hint}
           canReveal={g.canReveal && !g.paused}
           onReveal={g.reveal}
+          sortMode={hand.sortMode}
+          onToggleSort={hand.toggleSort}
         />
         <View style={styles.handWrap}>
           <Hand
-            cards={hand}
+            cards={hand.cards}
             width={handWidth}
-            cardWidth={layout.handCardWidth}
-            legalIds={g.legalIds}
-            showLegality={!!myPlayTurn}
-            selectedId={activeSelection}
-            onTap={onTap}
-            onSwipe={onSwipe}
+            maxCardWidth={layout.handCardWidth}
+            interactive={!!myPlayTurn}
+            selectedId={hand.selectedId}
+            onTap={hand.onTap}
+            onPlay={hand.onPlay}
+            onBlocked={hand.onBlocked}
+            dropZone={dropZone}
+            dragState={hand.dragState}
             shakeSeq={g.error?.seq ?? 0}
             dealStagger={perCard * 4}
             dealOffset={dealOffset}
@@ -223,5 +200,5 @@ export default function GameScreen() {
 const styles = StyleSheet.create({
   screen: { flex: 1, alignItems: 'center' },
   column: { flex: 1 },
-  handWrap: { alignItems: 'center', paddingHorizontal: spacing.md, marginTop: spacing.xs },
+  handWrap: { alignItems: 'center', paddingHorizontal: spacing.sm, marginTop: spacing.xs },
 });

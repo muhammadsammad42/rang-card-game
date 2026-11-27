@@ -1,10 +1,12 @@
 /**
  * Segmented.tsx — a small segmented control (e.g. Easy | Normal) used on the
- * Settings screen.
+ * Settings screen. Each option has the shared press-scale + haptic.
  */
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { colors, radii, spacing, typography } from '@/theme/theme';
+
+import { PressableScale } from './PressableScale';
 
 interface Props<T extends string> {
   value: T;
@@ -19,15 +21,17 @@ export function Segmented<T extends string>({ value, options, onChange, accessib
       {options.map((o) => {
         const active = o.value === value;
         return (
-          <Pressable
+          <PressableScale
             key={o.value}
             onPress={() => onChange(o.value)}
+            haptic="tap"
             accessibilityRole="radio"
             accessibilityState={{ checked: active }}
             accessibilityLabel={o.label}
-            style={[styles.option, active && styles.active]}>
+            style={styles.flex}
+            contentStyle={[styles.option, active && styles.active]}>
             <Text style={[typography.label, { color: active ? colors.textOnGold : colors.textMuted }]}>{o.label}</Text>
-          </Pressable>
+          </PressableScale>
         );
       })}
     </View>
@@ -43,6 +47,7 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: colors.hairline,
   },
-  option: { flex: 1, alignItems: 'center', paddingVertical: spacing.sm, borderRadius: radii.pill },
+  flex: { flex: 1 },
+  option: { alignItems: 'center', paddingVertical: spacing.sm + 2, borderRadius: radii.pill },
   active: { backgroundColor: colors.gold },
 });

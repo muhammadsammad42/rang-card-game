@@ -6,6 +6,7 @@
  * revealed the card flips over in 3D (Reanimated) with a LottieFiles burst,
  * then settles into a gold medallion showing the trump suit.
  */
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 import { memo, useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import Animated, {
@@ -19,6 +20,7 @@ import Animated, {
 
 import { SUIT_NAMES } from '@/game/deck';
 import type { Card, Suit } from '@/game/types';
+import { useMotion } from '@/hooks/useMotion';
 import { colors, radii, spacing, typography } from '@/theme/theme';
 
 import { LottieAnim } from './LottieAnim';
@@ -40,20 +42,26 @@ interface Props {
 }
 
 function RangSlotBase({ placed, revealed, card, knownSuit, mine, revealSeq, cardWidth }: Props) {
+  const { reduced } = useMotion();
   const flip = useSharedValue(revealed ? 1 : 0);
   const settle = useSharedValue(revealed ? 1 : 0);
   /** The reveal whose burst has finished. Starts at the current value so remounting never replays an old burst. */
   const [burstDone, setBurstDone] = useState(revealSeq);
-  const showBurst = revealed && revealSeq > 0 && revealSeq !== burstDone;
+  const showBurst = !reduced && revealed && revealSeq > 0 && revealSeq !== burstDone;
 
   useEffect(() => {
     if (revealSeq === 0 || !revealed) return;
+    if (reduced) {
+      flip.set(1);
+      settle.set(1);
+      return;
+    }
     // Flip the card face up, then fade it into the suit medallion.
     flip.set(0);
     settle.set(0);
     flip.set(withTiming(1, { duration: 600, easing: Easing.inOut(Easing.cubic) }));
     settle.set(withDelay(1500, withTiming(1, { duration: 400 })));
-  }, [revealSeq, revealed, flip, settle]);
+  }, [revealSeq, revealed, flip, settle, reduced]);
 
   // A new hand: back to face down.
   useEffect(() => {
@@ -108,7 +116,16 @@ function RangSlotBase({ placed, revealed, card, knownSuit, mine, revealSeq, card
           </View>
         )}
       </View>
-      <Text style={[typography.micro, styles.caption]}>{revealed ? 'Rang' : mine ? 'Your Rang' : 'Rang ?'}</Text>
+      <View style={[styles.captionRow, revealed && styles.captionRevealed]}>
+        {revealed && knownSuit ? (
+          <SuitIcon suit={knownSuit} size={10} color={suitColorOnDark(knownSuit)} />
+        ) : (
+          <MaterialCommunityIcons name="lock" size={10} color={colors.goldLight} />
+        )}
+        <Text style={[typography.micro, styles.caption]}>
+          {revealed && knownSuit ? `Rang · ${SUIT_NAMES[knownSuit]}` : mine ? 'Your Rang' : 'Rang hidden'}
+        </Text>
+      </View>
     </View>
   );
 }
@@ -117,7 +134,19 @@ export const RangSlot = memo(RangSlotBase);
 
 const styles = StyleSheet.create({
   wrap: { alignItems: 'center', gap: spacing.xs },
-  caption: { color: colors.goldLight },
+  caption: { color: colors.goldLight, fontSize: 9 },
+  captionRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: radii.pill,
+    backgroundColor: colors.glassStrong,
+    borderWidth: 1,
+    borderColor: colors.hairline,
+  },
+  captionRevealed: { borderColor: colors.gold },
   medal: {
     backgroundColor: colors.nightPanel,
     borderWidth: 2,
