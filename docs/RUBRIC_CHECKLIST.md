@@ -38,7 +38,7 @@ Each rubric criterion mapped to the features and files that satisfy it.
 | Trick: fly-in, winner pop + "Winner" tag, sweep to the winner / pile, Lottie sparkle on collection | `TrickArea.tsx`, `Table.tsx` |
 | HUD: hand number, Us / Them chips, bid chip, Rang badge (lock flips to suit), team progress bars, "result decided" | `ScoreBoard.tsx` |
 | Middle pile + streak chip; "Last" trick bottom sheet | `MiddlePile.tsx`, `Table.tsx`, `utils/status.ts` (`streakChip`), `LastTrickModal.tsx` |
-| Status bar with icons ("Your turn: follow ♣ Clubs", "Waiting for Noor…", "Sana wins trick 4") | `utils/status.ts` (`statusInfo` tones), `ActionBar.tsx` |
+| Status bar with icons ("Your turn: follow ♣ Clubs", "Waiting for Hassan…", "Abdullah wins trick 4") | `utils/status.ts` (`statusInfo` tones), `ActionBar.tsx` |
 | Reveal Rang only when legal; pulses with a tip when you can't follow suit | `ActionBar.tsx` (`canReveal` from `rules.revealError`) |
 | Bidding panel (large chips 8–13 with locked states, card fan, calls pop in), Choose-Rang modal, result screen (big Lottie, count-up totals), pause menu with confirmations | `BiddingPanel.tsx`, `RangPicker.tsx`, `ResultModal.tsx`, `PauseMenu.tsx`, `ConfirmDialog.tsx` |
 | Micro-interactions: press-scale + haptic on every button / chip / row | `PressableScale.tsx` (used by `AppButton`, `IconButton`, bid chips, `Segmented`, `ScreenHeader`, history rows) |

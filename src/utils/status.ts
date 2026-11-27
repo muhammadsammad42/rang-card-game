@@ -79,7 +79,7 @@ export function streakLine(game: GameState, players: PlayerProfile[], human: Sea
   return `${who} won the last trick — ${more} collects ${n} tricks (pile: ${game.pile})`;
 }
 
-/** Compact version for the chip under the middle pile: "Sana won last · 1 more → 3 tricks". */
+/** Compact version for the chip under the middle pile: "Abdullah won last · 1 more → 3 tricks". */
 export function streakChip(game: GameState, players: PlayerProfile[], human: Seat): string | null {
   if (!game.rangRevealed || game.phase !== 'PLAYING' || game.pile === 0 || game.streak.seat === null) return null;
   const s = game.streak.seat;

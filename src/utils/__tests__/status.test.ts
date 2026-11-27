@@ -30,7 +30,7 @@ const base = () =>
 
 describe('statusInfo', () => {
   it('waits for the player whose turn it is', () => {
-    expect(statusInfo(base(), players, 0, null, false)).toEqual({ text: 'Waiting for Sana…', tone: 'wait' });
+    expect(statusInfo(base(), players, 0, null, false)).toEqual({ text: 'Waiting for Abdullah…', tone: 'wait' });
   });
 
   it('tells you which suit to follow', () => {
@@ -46,7 +46,7 @@ describe('statusInfo', () => {
     s = play(s, 2, 'JD');
     const record = s.completedTricks[s.completedTricks.length - 1];
     expect(record.winner).toBe(3);
-    expect(statusInfo(s, players, 0, record, false)).toEqual({ text: 'Sana wins trick 1', tone: 'lose' });
+    expect(statusInfo(s, players, 0, record, false)).toEqual({ text: 'Abdullah wins trick 1', tone: 'lose' });
   });
 });
 
@@ -73,6 +73,6 @@ describe('streakChip', () => {
 
   it('summarises the streak after the reveal', () => {
     const s: GameState = { ...base(), rangRevealed: true, pile: 2, streak: { seat: 3, count: 1 } };
-    expect(streakChip(s, players, 0)).toBe('Sana won last · 1 more → 3 tricks');
+    expect(streakChip(s, players, 0)).toBe('Abdullah won last · 1 more → 3 tricks');
   });
 });

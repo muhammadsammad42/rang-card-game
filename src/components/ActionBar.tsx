@@ -3,7 +3,7 @@
  *
  *  - your mini seat (turn ring, dealer chip, bidder crown);
  *  - one short status message with an icon for its tone ("Your turn: follow
- *    ♣ Clubs" ✋, "Waiting for Noor…" 🕑, "Sana wins trick 4" 🏆…);
+ *    ♣ Clubs" ✋, "Waiting for Hassan…" 🕑, "Abdullah wins trick 4" 🏆…);
  *  - error / hint messages in red with a shake ("You must follow ♦ Diamonds");
  *  - the "Reveal Rang" button, only when revealing is legal for you. When you
  *    can't follow suit it pulses and shows a one-line hint;

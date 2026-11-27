@@ -145,7 +145,7 @@ Each `TrickRecord.outcome` records what happened (`team`, `pile`, or `collected`
 - the History trick log;
 - the sparkle Lottie and the toast on collection.
 
-The ActionBar shows the streak, for example "Noor won the last trick — one more win collects 4 tricks
+The ActionBar shows the streak, for example "Hassan won the last trick — one more win collects 4 tricks
 (pile: 3)". The MiddlePile shows a stack of card backs with a count badge.
 
 **Winning.** The bidding team wins if their collected tricks are at least their bid; otherwise the defenders
@@ -545,7 +545,7 @@ springs back.
   to the winner's side (or the middle pile) and a Lottie sparkle plays where it was collected.
 - **Rang**: the table slot shows a lock "Rang hidden" caption, flips in 3-D with a Lottie burst on reveal;
   the HUD `RangBadge` flips from the lock to the suit.
-- **Middle pile** shows a streak chip ("Sana won last · 1 more → 3 tricks").
+- **Middle pile** shows a streak chip ("Abdullah won last · 1 more → 3 tricks").
 - **HUD**: hand number, Us / Them chips, "Last" trick bottom sheet, bid chip, and a progress bar per team
   towards what it needs (bidders → the bid, defenders → 14 − bid).
 - **Status bar**: `statusInfo` returns a text and a tone; the tone picks the icon (✋ your turn, ⏳ waiting,

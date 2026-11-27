@@ -20,10 +20,13 @@ export const HUMAN_SEAT: Seat = 0;
 export const SEAT_POSITION = ['south', 'west', 'north', 'east'] as const;
 export type SeatPosition = (typeof SEAT_POSITION)[number];
 
+/** Bot names by seat 1–3 (West, North = your partner, East). Online rooms use the same names. */
+export const BOT_NAMES = ['Hassan', 'Ali', 'Abdullah'] as const;
+
 const BOTS: Omit<PlayerProfile, 'seat' | 'isBot'>[] = [
-  { name: 'Noor', avatar: '🦉', colors: ['#7A4FD1', '#3B2378'] }, // West  (opponent)
-  { name: 'Bilal', avatar: '🐯', colors: ['#2F9E8F', '#14524A'] }, // North (your partner)
-  { name: 'Sana', avatar: '🦊', colors: ['#D9733F', '#7A3316'] }, // East  (opponent)
+  { name: BOT_NAMES[0], avatar: '🦉', colors: ['#7A4FD1', '#3B2378'] }, // West  (opponent)
+  { name: BOT_NAMES[1], avatar: '🐯', colors: ['#2F9E8F', '#14524A'] }, // North (your partner)
+  { name: BOT_NAMES[2], avatar: '🦊', colors: ['#D9733F', '#7A3316'] }, // East  (opponent)
 ];
 
 /** Builds the four player profiles, using the human's chosen name for seat 0. */

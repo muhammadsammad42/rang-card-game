@@ -11,7 +11,7 @@
  *  - seat helpers:  emptySeats, assignSeatRequests, replaceWithBot, restoreReturning.
  */
 import { teamOf } from '@/game/rules';
-import type { PlayerProfile } from '@/game/players';
+import { BOT_NAMES, type PlayerProfile } from '@/game/players';
 import type { Card, GameAction, GameState, HandResult, Seat, Team, TrickOutcome, TrickRecord } from '@/game/types';
 
 import type { ActionDoc, HandDoc, PlayerDoc, PublicState, RoomSeat } from './types';
@@ -96,7 +96,8 @@ export function toGameAction(action: Pick<ActionDoc, 'type' | 'value' | 'cardId'
 // Seats (lobby)
 // ---------------------------------------------------------------------------
 
-export const ONLINE_BOT_NAMES = ['Noor', 'Bilal', 'Sana', 'Zara'];
+/** Bot name per room seat: seats 1–3 match single-player (West, North, East as seen by seat 0). */
+export const ONLINE_BOT_NAMES = ['Zara', ...BOT_NAMES];
 
 export function emptySeat(index: number): RoomSeat {
   return { uid: null, name: '', isBot: false, team: teamOf(index as Seat), replacedUid: null, replacedName: null };

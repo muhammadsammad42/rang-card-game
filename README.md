@@ -20,7 +20,7 @@ drawn entirely in code.
   - The **middle pile**: after the reveal, tricks wait in the middle until the same player wins two tricks
     in a row; leftovers go to the last trick's winner.
   - Win/lose at the bid boundary, a rotating dealer, and a session scoreboard.
-- **Three bots** (Noor, Bilal, Sana) with Easy and Normal difficulty. They only ever see public information,
+- **Three bots** (Hassan, Ali — your partner — and Abdullah) with Easy and Normal difficulty. They only ever see public information,
   so they cannot cheat.
 - **Animations**
   - **LottieFiles** (played with `lottie-react-native`): the Home ambience, the Rang-reveal burst, a sparkle
