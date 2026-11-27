@@ -31,9 +31,12 @@ import { InfoStrip, TopBar } from '@/components/ScoreBoard';
 import { Table } from '@/components/Table';
 import { useGame } from '@/context/GameProvider';
 import type { Card } from '@/game/types';
+import { useFeedback } from '@/hooks/useFeedback';
 import { useHandController } from '@/hooks/useHandController';
 import { useLayout } from '@/hooks/useLayout';
+import { useBotReactions, useReactions } from '@/hooks/useReactions';
 import { gradients, motion, spacing } from '@/theme/theme';
+import type { ReactionEmoji } from '@/utils/reactions';
 import { statusInfo, streakChip } from '@/utils/status';
 
 export default function GameScreen() {
@@ -77,6 +80,18 @@ export default function GameScreen() {
   const play = useCallback((card: Card) => playCard(card.id), [playCard]);
   const hand = useHandController({ game, seat: humanSeat, legalIds: g.legalIds, canPlay: !!myPlayTurn, play });
 
+  // Emoji reactions: mine float above my seat; bots react to tricks, the reveal and the result.
+  const feedback = useFeedback();
+  const reactions = useReactions();
+  const { show } = reactions;
+  const react = useCallback(
+    (emoji: ReactionEmoji) => {
+      if (show(humanSeat, emoji)) feedback.tap();
+    },
+    [show, humanSeat, feedback],
+  );
+  useBotReactions(game, players, reactions.enabled ? show : null);
+
   const goHome = useCallback(() => {
     if (router.canGoBack()) router.back();
     else router.replace('/');
@@ -111,6 +126,8 @@ export default function GameScreen() {
           dropZone={dropZone}
           dragState={hand.dragState}
           streak={streakChip(game, players, humanSeat)}
+          reactions={reactions.bubbles}
+          onReact={reactions.enabled ? react : null}
         />
         <ActionBar
           game={game}

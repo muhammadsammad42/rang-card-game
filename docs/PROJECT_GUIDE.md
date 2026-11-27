@@ -578,3 +578,57 @@ springs back.
 | `utils/__tests__/handView.test.ts`, `utils/__tests__/status.test.ts` | New tests (sorting, isPlayable, fan fit, messages, the full engine → isPlayable pipeline). |
 
 Screenshots: `docs/screenshots/before/` and `docs/screenshots/after/`.
+
+The five highlighting cases (leading, following, void in the led suit, bidder reveal, not my turn) are
+tested end to end — engine `getLegalCards` + `revealError` → `buildHandView` — in
+`utils/__tests__/playableCards.test.ts`.
+
+---
+
+## 14. Emoji reactions (no text chat)
+
+Assignment constraint: **no chat, no text input, no voice, no message history** — only 10 fixed emojis
+(`REACTION_EMOJIS` in `utils/reactions.ts`: 😀 😂 😮 😢 😡 👍 🎉 🔥 👑 🤔).
+
+```
+😀 button on the felt (ReactionButton) → tray of 10 → pick one
+   → useReactions.show(seat, emoji)   rate limit 1 / 2 s per seat; dropped if Settings → Reactions is off
+   → bubbles[] → Table → ReactionLayer → <Float> (Reanimated: pop, drift up, fade, ~2.5 s) above the seat
+```
+
+- **Single-player** (`app/game.tsx`): my reaction → `show(0, emoji)` + tap haptic. `useBotReactions`
+  compares the previous and new `GameState` and calls `botReactions` (pure, tested): a bot may react when it
+  wins a trick (20 %), when the Rang is revealed (45 %), and at the end of the hand (50 % each, max 2).
+- **Online** (`online/useOnlineReactions.ts`): `send` shows mine at once, then `roomService.sendReaction`
+  adds `{ uid, seat, emoji, t, at }` to `rooms/{code}/reactions`. `listenReactions` skips the first
+  snapshot (old reactions from before joining) and passes on only newly **added** docs; my own echo is
+  skipped, and the real seat → view seat (`view.viewSeat`) so it floats above the sender on every phone.
+  Only the host runs `useBotReactions` and writes the bots' reactions for their seats. The listener is an
+  effect keyed on the room code, so leaving the room / screen unsubscribes it.
+- **Settings → Reactions** (default on): off hides the button and incoming reactions are not shown.
+- **Rules**: a signed-in user may only create a reaction with their own `uid`, for the seat they occupy
+  in that room (the host also for a bot seat), with one of the 10 emojis and only the allowed fields;
+  reactions can never be updated or deleted.
+
+| File | Purpose |
+|---|---|
+| `utils/reactions.ts` (+ test) | Emoji list, rate limiter, `botReactions`. |
+| `hooks/useReactions.ts` | Bubble state + timers, `useBotReactions`. |
+| `components/Reactions.tsx` | `ReactionButton` (tray), `ReactionLayer` / `Float`. |
+| `online/useOnlineReactions.ts`, `roomService.sendReaction` / `listenReactions`, `types.ReactionDoc` | Online path. |
+| `Table.tsx`, `app/game.tsx`, `app/online/game.tsx`, `SettingsProvider`, `app/settings.tsx` | Wiring + toggle. |
+
+---
+
+## 15. Deploying Firestore rules (Firebase CLI)
+
+`firebase.json` points at `firestore.rules`; `.firebaserc` selects the project
+(`EXPO_PUBLIC_FIREBASE_PROJECT_ID`). After any change to the rules:
+
+```bash
+firebase deploy --only firestore:rules
+```
+
+The CLI compiles the rules first and refuses to upload if they have an error. Only rules are ever
+deployed from this repo (no Hosting / Functions), and nothing deletes data.
+

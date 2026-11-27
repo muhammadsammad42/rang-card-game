@@ -18,6 +18,8 @@ import type { PlayerProfile } from '@/game/players';
 import { partnerOf } from '@/game/rules';
 import type { GameState, Seat as SeatId } from '@/game/types';
 import type { GameEvents, ShownTrick } from '@/context/GameProvider';
+import type { ReactionBubble } from '@/hooks/useReactions';
+import type { ReactionEmoji } from '@/utils/reactions';
 import { useMotion } from '@/hooks/useMotion';
 import { colors, gradients, motion, radii, spacing, typography } from '@/theme/theme';
 
@@ -27,6 +29,7 @@ import type { DragState } from './Hand';
 import { LottieAnim } from './LottieAnim';
 import { MiddlePile } from './MiddlePile';
 import { RangSlot } from './RangSlot';
+import { ReactionButton, ReactionLayer } from './Reactions';
 import { Seat } from './Seat';
 import { TrickArea } from './TrickArea';
 
@@ -43,6 +46,10 @@ interface Props {
   dragState: DragState;
   /** Short streak text for the chip under the middle pile (post-reveal). */
   streak: string | null;
+  /** Floating emoji reactions to draw above the seats (view seats). */
+  reactions?: ReactionBubble[];
+  /** Sends my reaction; when missing the reactions button is hidden. */
+  onReact?: ((emoji: ReactionEmoji) => void) | null;
 }
 
 /** Latest bid/pass of a seat during bidding, for the speech bubble. */
@@ -91,6 +98,8 @@ export function Table({
   dropZone,
   dragState,
   streak,
+  reactions,
+  onReact,
 }: Props) {
   const { reduced } = useMotion();
   const [size, setSize] = useState({ w: 0, h: 0 });
@@ -118,6 +127,13 @@ export function Table({
     { x: 8 + seatW / 2, y: centerY },
     { x: w / 2, y: 8 + seatH / 2 },
     { x: w - 8 - seatW / 2, y: centerY },
+  ];
+  // Where reactions start: just above my hand, and over each opponent's seat panel.
+  const reactionPoints: Point[] = [
+    { x: w / 2, y: h - 30 },
+    { x: seatPoints[1].x, y: centerY - seatH * 0.2 },
+    { x: w / 2, y: 8 + seatH * 0.4 },
+    { x: seatPoints[3].x, y: centerY - seatH * 0.2 },
   ];
   const dealing = game.phase === 'DEAL_5' || game.phase === 'DEAL_REST';
 
@@ -224,6 +240,13 @@ export function Table({
           cardWidth={trickCardWidth * 0.7}
         />
       )}
+
+      {w > 0 && reactions && reactions.length > 0 && (
+        <View pointerEvents="none" style={StyleSheet.absoluteFill}>
+          <ReactionLayer bubbles={reactions} points={reactionPoints} />
+        </View>
+      )}
+      {w > 0 && onReact && <ReactionButton onSend={onReact} />}
     </View>
   );
 }

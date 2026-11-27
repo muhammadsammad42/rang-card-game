@@ -44,6 +44,9 @@ Each rubric criterion mapped to the features and files that satisfy it.
 | Micro-interactions: press-scale + haptic on every button / chip / row | `PressableScale.tsx` (used by `AppButton`, `IconButton`, bid chips, `Segmented`, `ScreenHeader`, history rows) |
 | "Reduce animations" option (also follows the phone setting) | `app/settings.tsx`, `hooks/useMotion.ts` |
 | Before / after screenshots | `docs/screenshots/` |
+| Highlighting cases tested end to end (lead / follow / void + reveal / bidder reveal / not my turn) | `utils/__tests__/playableCards.test.ts` |
+| **Emoji reactions** (10 fixed emojis, no text chat): tray, float-up animation above the sender's seat, haptic, bots react sometimes, online via Firestore, 1 per 2 s, Settings toggle | `components/Reactions.tsx`, `hooks/useReactions.ts`, `utils/reactions.ts` (+ test), `online/useOnlineReactions.ts`, `firestore.rules` — PROJECT_GUIDE §14 |
+| Firestore rules deployed with the Firebase CLI | `firebase.json`, `.firebaserc` — PROJECT_GUIDE §15 |
 | Lottie animations (LottieFiles) | `theme/animations.ts`, `LottieAnim.tsx`, `assets/lottie/` |
 | Reanimated: deal, lift, glow pulse, drag, fly-in, winner pop, sweep, flip, turn ring, thinking dots, progress bars, shake, press, fades | `DealOverlay`, `Hand`, `DropZone`, `TrickArea`, `RangSlot`, `Seat`, `ScoreBoard`, `ActionBar`, `PressableScale`, `FadeInView` |
 | Haptics on select, play, button press, invalid move, reveal, collect, win | `hooks/useFeedback.ts`, `PressableScale.tsx`, `useHandController.ts`, `GameProvider.tsx` |

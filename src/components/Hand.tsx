@@ -375,5 +375,5 @@ const styles = StyleSheet.create({
   card: { position: 'absolute', left: 0, top: 0 },
   halo: { position: 'absolute', backgroundColor: colors.accentGlow },
   dim: { backgroundColor: colors.cardDim },
-  border: { borderWidth: 2.5, borderColor: colors.accent },
+  border: { borderWidth: 3, borderColor: colors.accent },
 });

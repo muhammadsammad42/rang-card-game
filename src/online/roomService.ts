@@ -12,7 +12,9 @@ import {
   doc,
   Firestore,
   getDoc,
+  limit,
   onSnapshot,
+  orderBy,
   query,
   runTransaction,
   serverTimestamp,
@@ -28,7 +30,7 @@ import { getDb } from '@/services/firebase';
 import type { HostStore, HostWrite } from './HostController';
 import { emptySeats, firestoreSafe, humanCount, isSeatOpen, seatOf } from './protocol';
 import { generateRoomCode } from './roomCode';
-import type { ActionDoc, ActionType, HandDoc, PlayerDoc, RoomDoc } from './types';
+import type { ActionDoc, ActionType, HandDoc, PlayerDoc, ReactionDoc, RoomDoc } from './types';
 
 const ROOMS = 'rooms';
 
@@ -144,6 +146,12 @@ export async function sendAction(
   await addDoc(collection(requireDb(), ROOMS, code, 'actions'), action);
 }
 
+/** An emoji reaction from `seat` (my own seat, or — for the host — a bot's seat). See firestore.rules. */
+export async function sendReaction(code: string, uid: string, seat: number, emoji: string): Promise<void> {
+  const reaction: ReactionDoc = { uid, seat, emoji, t: Date.now(), at: serverTimestamp() };
+  await addDoc(collection(requireDb(), ROOMS, code, 'reactions'), reaction);
+}
+
 // ---- listeners ----
 
 type OnError = (e: unknown) => void;
@@ -208,4 +216,24 @@ export function firestoreHostStore(code: string): HostStore {
       await batch.commit();
     },
   };
+}
+
+/**
+ * New reactions only: the first snapshot (reactions sent before we joined or
+ * re-attached) is skipped; after that only newly added documents are passed on.
+ */
+export function listenReactions(code: string, onReactions: (list: ReactionDoc[]) => void, onError: OnError): Unsubscribe {
+  let first = true;
+  return onSnapshot(
+    query(collection(requireDb(), ROOMS, code, 'reactions'), orderBy('t', 'desc'), limit(5)),
+    (snap) => {
+      if (first) {
+        first = false;
+        return;
+      }
+      const added = snap.docChanges().filter((c) => c.type === 'added').map((c) => c.doc.data() as ReactionDoc);
+      if (added.length) onReactions(added.reverse());
+    },
+    onError,
+  );
 }

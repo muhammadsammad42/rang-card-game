@@ -121,6 +121,12 @@ export default function SettingsScreen() {
               value={settings.reduceMotion}
               onChange={(reduceMotion) => update({ reduceMotion })}
             />
+            <SwitchRow
+              title="Reactions"
+              help="Shows the emoji reactions button on the table and the emojis other players and bots send. Off hides both."
+              value={settings.reactions}
+              onChange={(reactions) => update({ reactions })}
+            />
           </GlassPanel>
 
           <GlassPanel style={styles.panel}>
