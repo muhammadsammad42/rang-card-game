@@ -120,6 +120,7 @@ export function BiddingPanel({ game, players, humanSeat, isHumanTurn, cardWidth,
               key={v}
               disabled={disabled}
               onPress={() => onBid(v)}
+              sound="none"
               scaleTo={0.9}
               style={styles.bidWrap}
               accessibilityLabel={`Bid ${v} tricks${tooLow ? ', too low' : ''}`}

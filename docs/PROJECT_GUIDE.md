@@ -632,3 +632,37 @@ firebase deploy --only firestore:rules
 The CLI compiles the rules first and refuses to upload if they have an error. Only rules are ever
 deployed from this repo (no Hosting / Functions), and nothing deletes data.
 
+---
+
+## 16. Sound effects (`expo-audio`, works in Expo Go)
+
+**Files:** 13 short WAVs (< 1 s, ~250 KB total) in `assets/sounds/`, synthesised by
+`node scripts/generate-sounds.js` (sine chimes/bells + filtered-noise card flicks, smooth fades, quiet
+peak levels). They are referenced from one file only: `src/theme/sounds.ts` (`SOUND_FILES`, volumes,
+voices per sound, anti-spam gaps). Rollback point before sounds: git tag `v1.0-before-sounds`.
+
+**Service:** `src/services/soundService.ts` — `init()` sets the audio mode (`playsInSilentMode: false` so
+the iOS silent switch mutes it; mixes with other apps) and preloads a player per sound (2 for tap / select
+/ play / pop so quick repeats overlap). `play(name)` rewinds a free player and plays; the same sound is
+throttled (`SOUND_MIN_GAP`) so fast bot turns don't spam. Every call is wrapped in try/catch — a broken
+sound never crashes the app (warning in dev only). `release()` removes all players. The backend is
+injected, so `services/__tests__/soundService.test.ts` uses a fake. On Android the sounds follow the
+media volume.
+
+**Hooks:** `hooks/useSound.ts` — `useSoundSetup()` (root layout: preload, sync with Settings, release on
+unmount), `useSound()` → `sfx(name)`, `useGameSounds(game, mySeat)` → `utils/gameSounds.gameSoundsFor`
+(pure, tested) diffs the previous and next state: one event sound (win/lose > reveal > pile collected >
+trick won > bid > your turn > deal) plus a card flick when another player put a card down.
+
+| Sound | Where it plays |
+|---|---|
+| tap | every `PressableScale` press (so every `AppButton`, icon button, chip) |
+| select / play / invalid | `useHandController`: select, play (tap or drag), illegal tap (with shake + haptic) |
+| trick, pile, reveal, bid, turn (mine only), deal, win / lose, other players' cards | `useGameSounds` in `app/game.tsx` and `app/online/game.tsx` |
+| pop | sending a reaction (single-player and online) |
+
+Online: each phone plays sounds for the states it sees — nothing goes through Firestore.
+
+**Settings:** "Sound effects" switch (default on) + Volume Low / Medium / High, saved with the other
+settings in AsyncStorage; independent of the "Haptics" switch.
+

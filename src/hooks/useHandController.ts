@@ -18,6 +18,7 @@ import { useSettings } from '@/context/SettingsProvider';
 import { buildHandView, illegalMessage, sortForDisplay } from '@/utils/handView';
 
 import { useFeedback } from './useFeedback';
+import { useSound } from './useSound';
 
 interface Options {
   game: GameState | null;
@@ -33,6 +34,7 @@ interface Options {
 export function useHandController({ game, seat, legalIds, canPlay, play }: Options) {
   const { settings, update } = useSettings();
   const feedback = useFeedback();
+  const sfx = useSound();
   const sortMode = settings.handSort;
 
   const sorted = useMemo(() => (game ? sortForDisplay(game.hands[seat], sortMode) : []), [game, seat, sortMode]);
@@ -60,9 +62,12 @@ export function useHandController({ game, seat, legalIds, canPlay, play }: Optio
     const { canPlay: ok, play: send } = latest.current;
     if (!ok) return false;
     const done = send(card);
-    if (done) setSelected(null);
+    if (done) {
+      setSelected(null);
+      sfx('play');
+    }
     return done;
-  }, []);
+  }, [sfx]);
 
   const onTap = useCallback(
     (card: Card) => {
@@ -73,9 +78,10 @@ export function useHandController({ game, seat, legalIds, canPlay, play }: Optio
       } else {
         setSelected(card.id);
         fb.tap();
+        sfx('select');
       }
     },
-    [onPlay],
+    [onPlay, sfx],
   );
 
   const onBlocked = useCallback(() => {
@@ -84,7 +90,8 @@ export function useHandController({ game, seat, legalIds, canPlay, play }: Optio
     hintSeq.current += 1;
     setHint({ message: illegalMessage(g.currentTrick), seq: hintSeq.current, game: g });
     fb.error();
-  }, []);
+    sfx('invalid');
+  }, [sfx]);
 
   const toggleSort = useCallback(() => {
     update({ handSort: sortMode === 'suit' ? 'rank' : 'suit' });

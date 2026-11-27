@@ -47,6 +47,7 @@ Each rubric criterion mapped to the features and files that satisfy it.
 | Highlighting cases tested end to end (lead / follow / void + reveal / bidder reveal / not my turn) | `utils/__tests__/playableCards.test.ts` |
 | **Emoji reactions** (10 fixed emojis, no text chat): tray, float-up animation above the sender's seat, haptic, bots react sometimes, online via Firestore, 1 per 2 s, Settings toggle | `components/Reactions.tsx`, `hooks/useReactions.ts`, `utils/reactions.ts` (+ test), `online/useOnlineReactions.ts`, `firestore.rules` — PROJECT_GUIDE §14 |
 | Firestore rules deployed with the Firebase CLI | `firebase.json`, `.firebaserc` — PROJECT_GUIDE §15 |
+| **Sound effects** (expo-audio, Expo Go): 13 synthesised sounds, preloaded, overlap, anti-spam, never crash; Settings: Sound effects on/off + volume, separate from Haptics | `theme/sounds.ts`, `services/soundService.ts` (+ test), `hooks/useSound.ts`, `utils/gameSounds.ts`, `scripts/generate-sounds.js` — PROJECT_GUIDE §16 |
 | Lottie animations (LottieFiles) | `theme/animations.ts`, `LottieAnim.tsx`, `assets/lottie/` |
 | Reanimated: deal, lift, glow pulse, drag, fly-in, winner pop, sweep, flip, turn ring, thinking dots, progress bars, shake, press, fades | `DealOverlay`, `Hand`, `DropZone`, `TrickArea`, `RangSlot`, `Seat`, `ScoreBoard`, `ActionBar`, `PressableScale`, `FadeInView` |
 | Haptics on select, play, button press, invalid move, reveal, collect, win | `hooks/useFeedback.ts`, `PressableScale.tsx`, `useHandController.ts`, `GameProvider.tsx` |

@@ -5,6 +5,7 @@
 import { createContext, ReactNode, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 
 import { EMPTY_STATS, KEYS, LocalStats, readJSON, writeJSON } from '@/services/storage';
+import type { SoundVolume } from '@/theme/sounds';
 
 export type Difficulty = 'easy' | 'normal';
 export type BotSpeed = 'slow' | 'normal' | 'fast';
@@ -21,6 +22,9 @@ export interface Settings {
   handSort: HandSort;
   /** Emoji reactions on the table (button + floating emojis). */
   reactions: boolean;
+  /** Sound effects (independent of haptics). */
+  sound: boolean;
+  soundVolume: SoundVolume;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -31,6 +35,8 @@ export const DEFAULT_SETTINGS: Settings = {
   reduceMotion: false,
   handSort: 'suit',
   reactions: true,
+  sound: true,
+  soundVolume: 'medium',
 };
 
 /** Bot "thinking" delay range per speed setting, in milliseconds. */

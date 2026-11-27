@@ -35,6 +35,7 @@ import { useFeedback } from '@/hooks/useFeedback';
 import { useHandController } from '@/hooks/useHandController';
 import { useLayout } from '@/hooks/useLayout';
 import { useBotReactions, useReactions } from '@/hooks/useReactions';
+import { useGameSounds, useSound } from '@/hooks/useSound';
 import { gradients, motion, spacing } from '@/theme/theme';
 import type { ReactionEmoji } from '@/utils/reactions';
 import { statusInfo, streakChip } from '@/utils/status';
@@ -82,13 +83,18 @@ export default function GameScreen() {
 
   // Emoji reactions: mine float above my seat; bots react to tricks, the reveal and the result.
   const feedback = useFeedback();
+  const sfx = useSound();
+  useGameSounds(game, humanSeat);
   const reactions = useReactions();
   const { show } = reactions;
   const react = useCallback(
     (emoji: ReactionEmoji) => {
-      if (show(humanSeat, emoji)) feedback.tap();
+      if (show(humanSeat, emoji)) {
+        feedback.tap();
+        sfx('pop');
+      }
     },
-    [show, humanSeat, feedback],
+    [show, humanSeat, feedback, sfx],
   );
   useBotReactions(game, players, reactions.enabled ? show : null);
 

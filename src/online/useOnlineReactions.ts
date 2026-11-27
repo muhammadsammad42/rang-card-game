@@ -14,6 +14,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import type { Seat } from '@/game/types';
 import { useFeedback } from '@/hooks/useFeedback';
 import { useBotReactions, useReactions } from '@/hooks/useReactions';
+import { useSound } from '@/hooks/useSound';
 import { isReactionEmoji, type ReactionEmoji } from '@/utils/reactions';
 
 import type { LocalView } from './protocol';
@@ -31,6 +32,7 @@ export function useOnlineReactions({ roomCode, uid, mySeat, isHost, view }: Opti
   const reactions = useReactions();
   const { show } = reactions;
   const feedback = useFeedback();
+  const sfx = useSound();
   const latest = useRef({ view, mySeat });
   useEffect(() => {
     latest.current = { view, mySeat };
@@ -57,9 +59,10 @@ export function useOnlineReactions({ roomCode, uid, mySeat, isHost, view }: Opti
       if (!roomCode || !uid || mySeat === null) return;
       if (!show(0, emoji)) return; // rate-limited
       feedback.tap();
+      sfx('pop');
       sendReaction(roomCode, uid, mySeat, emoji).catch(() => undefined);
     },
-    [roomCode, uid, mySeat, show, feedback],
+    [roomCode, uid, mySeat, show, feedback, sfx],
   );
 
   const sendBot = useCallback(

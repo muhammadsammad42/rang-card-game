@@ -39,6 +39,7 @@ import { useHandController } from '@/hooks/useHandController';
 import { useLayout } from '@/hooks/useLayout';
 import { useOnline } from '@/online/OnlineRoomProvider';
 import { useOnlineHistory } from '@/online/useOnlineHistory';
+import { useGameSounds } from '@/hooks/useSound';
 import { useOnlineReactions } from '@/online/useOnlineReactions';
 import { useTableDisplay } from '@/online/useTableDisplay';
 import { colors, gradients, motion, radii, spacing, typography } from '@/theme/theme';
@@ -62,6 +63,8 @@ export default function OnlineGameScreen() {
   const game = view?.game ?? null;
   const players = useMemo(() => view?.players ?? [], [view]);
   const { shownTrick, events, resultVisible } = useTableDisplay(game, players);
+  // Sounds play locally for the states this phone sees (never sent through Firestore).
+  useGameSounds(game, o.mySeat !== null ? ME : null);
   const reactions = useOnlineReactions({ roomCode: o.roomCode, uid: o.uid, mySeat: o.mySeat, isHost: o.isHost, view });
   const saveStatus = useOnlineHistory(game, players, o.roomCode, recordHand);
 

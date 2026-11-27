@@ -17,6 +17,7 @@ import { ErrorBoundary } from '@/components/ErrorBoundary';
 import { ToastProvider, useToast } from '@/components/Toast';
 import { GameProvider } from '@/context/GameProvider';
 import { SettingsProvider } from '@/context/SettingsProvider';
+import { useSoundSetup } from '@/hooks/useSound';
 import { useMotion } from '@/hooks/useMotion';
 import { flushQueue } from '@/services/historyService';
 import { colors } from '@/theme/theme';
@@ -37,6 +38,8 @@ const navTheme = {
 /** On app start, retry uploading any games saved while offline (non-blocking). */
 function StartupSync() {
   const toast = useToast();
+  // Preload the sound effects once and keep them in sync with Settings.
+  useSoundSetup();
   useEffect(() => {
     flushQueue()
       .then((n) => {

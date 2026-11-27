@@ -15,6 +15,7 @@ import { Segmented } from '@/components/Segmented';
 import { useToast } from '@/components/Toast';
 import { BotSpeed, Difficulty, HandSort, useSettings } from '@/context/SettingsProvider';
 import { useLayout } from '@/hooks/useLayout';
+import type { SoundVolume } from '@/theme/sounds';
 import { colors, gradients, radii, spacing, typography } from '@/theme/theme';
 
 const MAX_NAME = 16;
@@ -109,6 +110,27 @@ export default function SettingsScreen() {
 
           <GlassPanel style={styles.panel}>
             <Text style={[typography.micro, styles.section]}>Feedback and motion</Text>
+            <SwitchRow
+              title="Sound effects"
+              help="Short sounds for buttons, cards, tricks, the Rang reveal and results. Haptics are separate."
+              value={settings.sound}
+              onChange={(sound) => update({ sound })}
+            />
+            {settings.sound && (
+              <>
+                <Text style={[typography.label, styles.label]}>Volume</Text>
+                <Segmented<SoundVolume>
+                  accessibilityLabel="Sound volume"
+                  value={settings.soundVolume}
+                  onChange={(soundVolume) => update({ soundVolume })}
+                  options={[
+                    { value: 'low', label: 'Low' },
+                    { value: 'medium', label: 'Medium' },
+                    { value: 'high', label: 'High' },
+                  ]}
+                />
+              </>
+            )}
             <SwitchRow
               title="Haptics"
               help="Vibration when you select or play a card, press a button, make an invalid move or win."

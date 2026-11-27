@@ -11,6 +11,7 @@ import { AccessibilityState, Insets, Pressable, StyleProp, ViewStyle } from 'rea
 import Animated, { useAnimatedStyle, useSharedValue, withSpring } from 'react-native-reanimated';
 
 import { useFeedback } from '@/hooks/useFeedback';
+import { useSound } from '@/hooks/useSound';
 import { useMotion } from '@/hooks/useMotion';
 import { motion } from '@/theme/theme';
 
@@ -25,6 +26,8 @@ interface Props {
   /** How far it shrinks (default theme motion.press = 0.95). */
   scaleTo?: number;
   haptic?: 'tap' | 'press' | 'none';
+  /** Sound on press (default: the soft tap). 'none' when the action makes its own sound. */
+  sound?: 'tap' | 'none';
   hitSlop?: number | Insets;
   accessibilityLabel?: string;
   accessibilityHint?: string;
@@ -40,6 +43,7 @@ export function PressableScale({
   contentStyle,
   scaleTo = motion.press,
   haptic = 'press',
+  sound = 'tap',
   hitSlop,
   accessibilityLabel,
   accessibilityHint,
@@ -49,6 +53,7 @@ export function PressableScale({
   const scale = useSharedValue(1);
   const { reduced } = useMotion();
   const feedback = useFeedback();
+  const sfx = useSound();
   const animated = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
 
   return (
@@ -62,6 +67,7 @@ export function PressableScale({
         hitSlop={hitSlop}
         onPress={() => {
           if (haptic !== 'none') feedback[haptic]();
+          if (sound !== 'none') sfx(sound);
           onPress?.();
         }}
         onPressIn={() => {
