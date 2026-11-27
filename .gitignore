@@ -49,3 +49,7 @@ example
 
 # test output
 coverage/
+
+# Personal editor / assistant folders
+.vscode/
+.claude/
