@@ -18,7 +18,12 @@
         "backgroundImage": "./assets/images/android-icon-background.png",
         "monochromeImage": "./assets/images/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "package": "com.sammad897.rangcardgame",
+      "versionCode": 1,
+      "permissions": [
+        "android.permission.MODIFY_AUDIO_SETTINGS"
+      ]
     },
     "web": {
       "output": "single",
@@ -48,6 +53,17 @@
       "typedRoutes": true,
       "reactCompiler": false
     },
-    "backgroundColor": "#060A13"
+    "backgroundColor": "#060A13",
+    "extra": {
+      "router": {
+        "asyncRoutes": {
+          "web": true
+        }
+      },
+      "eas": {
+        "projectId": "30357fc1-756e-4bc2-8c72-51ae9a4b6548"
+      }
+    },
+    "owner": "sammad897"
   }
 }
