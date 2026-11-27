@@ -88,12 +88,13 @@ function writeWav(name, samples) {
 const C5 = 523.25, E5 = 659.25, G5 = 783.99, C6 = 1046.5, E6 = 1318.5, G6 = 1568;
 
 const recipes = {
-  // Soft UI click.
+  // Crisp modern UI click: high transient + short tonal body.
   tap: () => {
-    const b = buffer(0.05);
-    tone(b, { freq: 1500, to: 1100, dur: 0.05, decay: 90, attack: 0.001 });
-    flick(b, { dur: 0.02, gain: 0.3, decay: 200, seed: 7 });
-    return finish(b, 0.28);
+    const b = buffer(0.045);
+    flick(b, { dur: 0.015, low: 0.7, high: 0.25, decay: 320, seed: 9 });
+    tone(b, { freq: 2300, to: 1900, dur: 0.03, decay: 160, attack: 0.0004, gain: 0.6 });
+    tone(b, { freq: 1150, dur: 0.045, decay: 110, attack: 0.0006, gain: 0.5 });
+    return finish(b, 0.6);
   },
   // Card lifted: a tiny rising blip.
   select: () => {
