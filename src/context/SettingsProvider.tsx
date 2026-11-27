@@ -19,6 +19,8 @@ export interface Settings {
   /** Shorter / fewer animations (also on automatically when the OS "Remove animations" setting is on). */
   reduceMotion: boolean;
   handSort: HandSort;
+  /** Emoji reactions on the table (button + floating emojis). */
+  reactions: boolean;
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -28,6 +30,7 @@ export const DEFAULT_SETTINGS: Settings = {
   haptics: true,
   reduceMotion: false,
   handSort: 'suit',
+  reactions: true,
 };
 
 /** Bot "thinking" delay range per speed setting, in milliseconds. */

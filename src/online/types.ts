@@ -5,6 +5,7 @@
  *   rooms/{code}/players/{uid}   PlayerDoc   written only by that player (presence + seat request)
  *   rooms/{code}/hands/{uid}     HandDoc     written by the host, readable only by that player
  *   rooms/{code}/actions/{id}    ActionDoc   created by a player, resolved by the host
+ *   rooms/{code}/reactions/{id}  ReactionDoc emoji reaction from a seated player (or the host, for a bot)
  *
  * Nothing secret (other players' cards, the hidden Rang, the shuffle seed) is
  * ever stored in RoomDoc — see protocol.toPublicState.
@@ -126,4 +127,14 @@ export interface ActionDoc {
   status: ActionStatus;
   reason: string | null;
   createdAt?: unknown;
+}
+
+/** One emoji reaction (no text chat). `seat` is the real room seat it floats above. */
+export interface ReactionDoc {
+  uid: string;
+  seat: number;
+  emoji: string;
+  /** Sender's clock, only used to order the listener query. */
+  t: number;
+  at?: unknown;
 }

@@ -7,6 +7,7 @@ rules_version = '2';
 //   rooms/{code}/players/{uid}  presence + seat request: only that player may write
 //   rooms/{code}/hands/{uid}    private cards: host writes, ONLY that player reads
 //   rooms/{code}/actions/{id}   move requests: players create their own, host resolves
+//   rooms/{code}/reactions/{id} emoji reactions: a seated player as themselves (host also for bots)
 //
 // Known limitation (host-authoritative design without Cloud Functions): the
 // host's phone holds the full game state in memory, so a modified host app
@@ -65,6 +66,23 @@ service cloud.firestore {
         allow update: if isHost(code)
                       && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'reason']);
         allow delete: if false;
+      }
+
+      // Emoji reactions only (no text chat). The sender must be seated in this
+      // room at `seat`; the host may also send for a bot's seat. Never edited.
+      match /reactions/{reactionId} {
+        allow read: if signedIn();
+        allow create: if signedIn()
+                      && request.resource.data.keys().hasOnly(['uid', 'seat', 'emoji', 't', 'at'])
+                      && request.resource.data.uid == request.auth.uid
+                      && request.resource.data.seat is int
+                      && request.resource.data.seat >= 0 && request.resource.data.seat <= 3
+                      && request.resource.data.t is number
+                      && request.resource.data.emoji in ['😀', '😂', '😮', '😢', '😡', '👍', '🎉', '🔥', '👑', '🤔']
+                      && (roomData(code).seats[request.resource.data.seat].uid == request.auth.uid
+                          || (roomData(code).hostUid == request.auth.uid
+                              && roomData(code).seats[request.resource.data.seat].isBot == true));
+        allow update, delete: if false;
       }
     }
   }
