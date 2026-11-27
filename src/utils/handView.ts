@@ -1,7 +1,7 @@
 /**
  * handView.ts — pure helpers that turn engine data into what the hand UI draws.
  *
- * The highlighting pipeline (explained in docs/PROJECT_GUIDE.md §13):
+ * The highlighting pipeline:
  *
  *   engine: getLegalCards(state, seat)          (rules.legalCards → follow-suit rule)
  *        → legalIds: Set<string>                (GameProvider / OnlineRoomProvider)

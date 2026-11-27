@@ -18,6 +18,21 @@ Open the link on an Android phone, download the APK and allow "Install unknown a
 Built with EAS Build (`eas build --platform android --profile preview`); the Firebase config comes from
 EAS environment variables (preview environment), never from a committed `.env`.
 
+## Demo video
+
+▶️ [Watch the gameplay demo (MP4)](demo/rang-gameplay-demo.mp4)
+
+## Screenshots
+
+| | | | |
+|---|---|---|---|
+| <img src="screenshots/01-home.jpeg" width="180" alt="Home"> | <img src="screenshots/02-online-room-lobby.jpeg" width="180" alt="Online room lobby"> | <img src="screenshots/03-bidding.jpeg" width="180" alt="Bidding"> | <img src="screenshots/04-choose-rang.jpeg" width="180" alt="Choose your Rang"> |
+| Home | Online room lobby | Bidding | Choose your Rang |
+| <img src="screenshots/05-table-your-lead.jpeg" width="180" alt="Your lead"> | <img src="screenshots/06-trick-winner.jpeg" width="180" alt="Trick winner"> | <img src="screenshots/07-pause-menu.jpeg" width="180" alt="Pause menu"> | <img src="screenshots/08-follow-suit-highlight-reaction.jpeg" width="180" alt="Follow suit + reaction"> |
+| Your lead | Trick winner | Pause menu | Follow suit + reaction |
+| <img src="screenshots/09-victory-result.jpeg" width="180" alt="Victory"> | <img src="screenshots/10-history.jpeg" width="180" alt="History"> | <img src="screenshots/11-hand-details.jpeg" width="180" alt="Hand details"> | <img src="screenshots/12-hand-details-tricks.jpeg" width="180" alt="Trick by trick"> |
+| Victory | History | Hand details | Trick by trick |
+
 ## Features
 
 - **The full Rang rules**, in a pure, unit-tested game engine:
@@ -175,9 +190,9 @@ hands) in memory, so a tampered host app could cheat. Other players can never re
 assets/
   images/            app icon, adaptive icon layers, splash (original art)
   lottie/            LottieFiles JSON animations + CREDITS.md
-docs/
-  PROJECT_GUIDE.md   file-by-file guide, state machine, data flow (for the viva)
-  RUBRIC_CHECKLIST.md  rubric criterion → features/files
+  sounds/            synthesised sound effects (scripts/generate-sounds.js)
+demo/                gameplay demo video
+screenshots/         screenshots from an Android phone
 src/
   app/               Expo Router screens: _layout, index (Home), game, settings, history/index, history/[id],
                      online/_layout, online/menu, online/lobby, online/game
