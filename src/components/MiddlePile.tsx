@@ -8,6 +8,7 @@ import { StyleSheet, Text, View } from 'react-native';
 import Animated, { useAnimatedStyle, useSharedValue, withSequence, withSpring, withTiming } from 'react-native-reanimated';
 
 import { CARD_RATIO } from '@/hooks/useLayout';
+import { useMotion } from '@/hooks/useMotion';
 import { colors, radii, typography } from '@/theme/theme';
 
 import { LottieAnim } from './LottieAnim';
@@ -24,13 +25,14 @@ interface Props {
 function MiddlePileBase({ count, cardWidth, collectSeq, visible }: Props) {
   /** The collection whose sparkle has finished. Starts at the current value so remounting never replays it. */
   const [sparkleDone, setSparkleDone] = useState(collectSeq);
-  const showSparkle = collectSeq > 0 && collectSeq !== sparkleDone;
+  const { reduced } = useMotion();
+  const showSparkle = !reduced && collectSeq > 0 && collectSeq !== sparkleDone;
   const bump = useSharedValue(1);
 
   // A small bounce each time the pile grows.
   useEffect(() => {
-    if (count > 0) bump.set(withSequence(withTiming(1.15, { duration: 120 }), withSpring(1)));
-  }, [count, bump]);
+    if (count > 0 && !reduced) bump.set(withSequence(withTiming(1.15, { duration: 120 }), withSpring(1)));
+  }, [count, bump, reduced]);
   const bumpStyle = useAnimatedStyle(() => ({ transform: [{ scale: bump.value }] }));
 
   if (!visible) return null;
@@ -46,7 +48,7 @@ function MiddlePileBase({ count, cardWidth, collectSeq, visible }: Props) {
       <Animated.View style={[{ width: w, height: h }, bumpStyle]}>
         {count === 0 ? (
           <View style={[styles.empty, { width: w, height: h, borderRadius: w * 0.1 }]}>
-            <Text style={[typography.micro, { color: colors.textDim }]}>Pile</Text>
+            <Text style={[typography.micro, { color: colors.textDim, fontSize: 9 }]}>Pile</Text>
           </View>
         ) : (
           Array.from({ length: layers }).map((_, i) => (

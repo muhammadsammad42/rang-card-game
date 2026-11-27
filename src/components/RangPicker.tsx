@@ -4,7 +4,7 @@
  * else learns it until it is revealed — not even your partner.
  */
 import { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 
 import { cardName, sortHand, SUIT_NAMES } from '@/game/deck';
 import type { Card } from '@/game/types';
@@ -13,6 +13,7 @@ import { colors, spacing, typography } from '@/theme/theme';
 import { AppButton } from './AppButton';
 import { Overlay } from './Overlay';
 import { PlayingCard } from './PlayingCard';
+import { PressableScale } from './PressableScale';
 
 interface Props {
   cards: Card[];
@@ -36,15 +37,17 @@ export function RangPicker({ cards, bid, forced, cardWidth, onConfirm }: Props) 
         {sorted.map((c) => {
           const isSel = selected?.id === c.id;
           return (
-            <Pressable
+            <PressableScale
               key={c.id}
               onPress={() => setSelected(c)}
-              accessibilityRole="button"
+              haptic="tap"
               accessibilityLabel={`${cardName(c)}: make ${SUIT_NAMES[c.suit]} the Rang`}
-              accessibilityState={{ selected: isSel }}
-              style={{ transform: [{ translateY: isSel ? -12 : 0 }] }}>
-              <PlayingCard card={c} width={cardWidth} highlighted={isSel} dimmed={!!selected && !isSel} />
-            </Pressable>
+              accessibilityState={{ selected: isSel }}>
+              {/* The lift lives on an inner View: PressableScale owns the outer transform (press scale). */}
+              <View style={{ transform: [{ translateY: isSel ? -12 : 0 }] }}>
+                <PlayingCard card={c} width={cardWidth} highlighted={isSel} dimmed={!!selected && !isSel} />
+              </View>
+            </PressableScale>
           );
         })}
       </View>

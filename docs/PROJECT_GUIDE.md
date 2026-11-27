@@ -26,7 +26,7 @@ work. Each source file also starts with a header comment describing its purpose.
 
 Why it is built this way:
 
-- **The engine is pure TypeScript.** It is easy to test (299 Jest tests) and easy to explain, and it can't
+- **The engine is pure TypeScript.** It is easy to test (352 Jest tests in the whole app) and easy to explain, and it can't
   break because of UI timing.
 - **The engine is deterministic given a seed.** Every shuffle uses a seeded RNG (`mulberry32`), so the same
   seed always deals the same cards.
@@ -67,12 +67,15 @@ game can never get stuck waiting for an animation callback.
 
 ## 3. How a card play flows (tap → action → reducer → re-render → animation)
 
-1. **Gesture.** In `Hand.tsx`, each card has a Gesture Handler tap and pan gesture. These callbacks are
-   *worklets* (they run on the UI thread). They call `scheduleOnRN(onTap, card)` to get back to JavaScript.
-2. **Screen logic.** `game.tsx → onTap`:
-   - The first tap selects the card, which lifts with a Reanimated spring.
-   - A second tap (or a swipe up) calls `GameProvider.playCard(cardId)`.
-   - If it's your turn and the card is illegal, the tap immediately explains why.
+1. **Gesture.** In `Hand.tsx`, each card has a Gesture Handler tap and pan gesture (enabled only on your
+   turn). These callbacks are *worklets* (they run on the UI thread). They call `scheduleOnRN(onTap, card)`
+   to get back to JavaScript.
+2. **Screen logic.** `useHandController` (shared by `game.tsx` and `online/game.tsx`):
+   - The first tap on a playable card selects it: it lifts and grows with a Reanimated spring (+ haptic).
+   - A second tap, or **dragging it onto the glowing drop zone** in the centre (or a firm flick upwards),
+     calls `onPlay` → `GameProvider.playCard(cardId)`. Released anywhere else, the card springs back.
+   - Tapping an illegal (dimmed) card never reaches the engine: that card shakes, the phone buzzes and the
+     status bar says "You must follow ♦ Diamonds" (see §13).
 3. **Validation.** `GameProvider.act()` runs `applyAction(state, action)` first.
    - **If illegal:** the state is not touched. It sets `error` (shown in red in the ActionBar), triggers an
      error haptic, and the hand shakes.
@@ -246,8 +249,8 @@ The engine and the tests read these constants, so changing one changes the behav
 |---|---|---|
 | `_layout.tsx` | Root layout and the provider tree: GestureHandlerRootView → SafeAreaProvider → ThemeProvider → **ErrorBoundary** → SettingsProvider → ToastProvider → GameProvider → Stack. | `RootLayout`; `StartupSync` (uploads queued games on start); `resetKey` remounts everything after a crash |
 | `index.tsx` | **Home**: Lottie ambience, RANG logo, Continue / New Game / History / Settings, local stats. | `HomeScreen`, `Stat` |
-| `game.tsx` | **Game Table**: TopBar, InfoStrip, Table, ActionBar, Hand, and the overlays (Bidding, Rang picker, Result, Pause, Last-trick). | `onTap`/`onSwipe` (select / play); `useFocusEffect` sets the game active and handles Android back → pause |
-| `settings.tsx` | **Settings**: name, bot difficulty, bot speed, haptics, reset local stats (with confirm). | `saveName` |
+| `game.tsx` | **Game Table**: TopBar, InfoStrip, Table, ActionBar, Hand, and the overlays (Bidding, Rang picker, Result, Pause, Last-trick sheet). | `useHandController` (sort, `isPlayable`, select / play / illegal hint); `dropZone` animated ref shared by Table and Hand; `useFocusEffect` sets the game active and handles Android back → pause |
+| `settings.tsx` | **Settings**: name, bot difficulty, bot speed, haptics, **Reduce animations**, **hand sort order**, reset local stats (with confirm). | `saveName`, `SwitchRow` |
 | `history/index.tsx` | **History** list with summary stats and loading/empty/error/not-configured states, pull-to-refresh. | `load()`, `GameRow`, `Stat` |
 | `history/[id].tsx` | **History Detail**: hand summary and trick-by-trick log. | `trickResult()`, `load()` |
 
@@ -269,7 +272,7 @@ The engine and the tests read these constants, so changing one changes the behav
 | File | Purpose |
 |---|---|
 | `GameProvider.tsx` | `useReducer(rootReducer)` over the engine; validated human actions (`act`); the bot and deal scheduler; the trick hold/sweep display; reveal and collect events (haptics + toasts); app-background pause; saving at hand end. Exposes `useGame()`. |
-| `SettingsProvider.tsx` | Settings and local stats in AsyncStorage. Exposes `useSettings()` and `BOT_DELAY`. |
+| `SettingsProvider.tsx` | Settings (incl. `reduceMotion`, `handSort`) and local stats in AsyncStorage. Exposes `useSettings()`, `useOptionalSettings()` (null outside the provider) and `BOT_DELAY`. |
 
 ### `src/components/`
 
@@ -277,28 +280,30 @@ The engine and the tests read these constants, so changing one changes the behav
 |---|---|
 | `PlayingCard.tsx` | A card drawn with Views, Text and SVG (ivory face, corner indices, court monogram, navy and brass back). `CardBack` is reused by the deal animation and the pile. |
 | `SuitIcon.tsx` | ♠ ♥ ♦ ♣ as SVG paths; `suitColorOnDark`. |
-| `Hand.tsx` | The human's fanned hand: arc layout, deal-in, re-sort slide, selection lift, swipe-up and tap gestures (worklets + `scheduleOnRN`), shake on error. |
-| `Table.tsx` | The felt table (SVG radial spotlight), West/North/East seats, TrickArea, RangSlot, MiddlePile, DealOverlay, positioned from `onLayout`. |
-| `Seat.tsx` | Avatar, name, team dot, card count, dealer chip, bidder crown, bid bubble, pulsing turn halo. |
+| `Hand.tsx` | The human's fanned hand. Layout from `fanLayout` (all 13 cards always fit, corners readable). Each card's `state` (playable / blocked / idle) drives a glow border + halo + lift, a dark dim + lower, or neutral — all Reanimated shared values. Tap-to-select, drag-to-drop-zone (UI-thread `measure()` hit test), flick, per-card shake on an illegal tap, deal-in, re-sort slide. |
+| `DropZone.tsx` | The dashed, glowing target in the centre of the table that appears while you drag a card (reads the shared `dragState`; its `animatedRef` is what the card measures). |
+| `PressableScale.tsx` | The shared micro-interaction: press-scale spring + light haptic. Used by AppButton, icon buttons, bid chips, segmented options, history rows, the Rang picker. |
+| `Table.tsx` | The felt table: gradient + SVG dot texture + spotlight + vignette + a gold ring around the trick area. Seat panels, DropZone, TrickArea, RangSlot, MiddlePile + streak chip, Lottie sparkle where a trick is collected, DealOverlay — positioned from `onLayout`. |
+| `Seat.tsx` | Seat panel: avatar with team ring, name, mini card-back stack + count, dealer chip, bidder crown, bid bubble, animated accent ring + glowing panel on their turn, "thinking…" dots for bots. |
 | `Avatar.tsx` | Emoji medallion with a team-coloured ring. |
-| `TrickArea.tsx` | Fly-in cards, winner glow, sweep to the winner or the pile. |
+| `TrickArea.tsx` | Fly-in cards, the winning card pops up with a "Winner" tag, then the trick sweeps to the winner's side or the pile. |
 | `MiddlePile.tsx` | Stacked backs with a count badge and the Lottie sparkle on collection. |
-| `RangSlot.tsx` | Face-down Rang, 3-D flip on reveal, burst, suit medallion. |
+| `RangSlot.tsx` | Face-down Rang with a lock "Rang hidden" caption; 3-D flip on reveal, Lottie burst, suit medallion and "Rang · Diamonds" caption. |
 | `DealOverlay.tsx` | Card backs flying from the dealer to each seat. |
-| `ScoreBoard.tsx` | `TopBar` (pause, hand number, match score, last-trick peek) and `InfoStrip` (bid/crown, Rang status, tricks vs. needed, "result decided"). |
-| `ActionBar.tsx` | The human's mini seat, status line, streak line, inline error with shake, Reveal Rang button. |
-| `BiddingPanel.tsx` | Bidding sheet: 5 cards, live calls, bid buttons 8–13, Pass. |
+| `ScoreBoard.tsx` | `TopBar` (pause, hand number, "Us / Them" score chips, "Last" trick button) and `InfoStrip` (bid + bidder chip, `RangBadge` that flips lock → suit, `TeamProgress` bars "Bidders 5 / 8", "Defenders 2 / 6", "result decided"). `IconButton` is exported for reuse. |
+| `ActionBar.tsx` | The status bar: mini seat, status text with a tone icon, red error/hint with shake, pulsing Reveal Rang button + one-line hint, Sort toggle (suit ↔ rank). |
+| `BiddingPanel.tsx` | Bidding sheet: 5 cards in a small fan, live calls (each new call pops in), large bid chips 8–13 (locked when too low), Pass. |
 | `RangPicker.tsx` | The human bidder chooses the face-down card. |
-| `ResultModal.tsx` | Win or lose Lottie, hand summary, match score, cloud-save line, Next Hand / Restart Match / Home. |
+| `ResultModal.tsx` | Big win or lose Lottie, trick totals that count up (`CountUp`), hand summary, match score, cloud-save line, Next Hand / Restart Match / Home. |
 | `PauseMenu.tsx` | Resume / Restart Hand / Restart Match / Quit, each with a confirmation. |
 | `ConfirmDialog.tsx` | Reusable "Are you sure?" dialog. |
-| `LastTrickModal.tsx` | Peek at the last trick; `describeOutcome()`. |
+| `LastTrickModal.tsx` | Bottom sheet with the last trick (leader ▶, winner glow, where it went); `describeOutcome()`. |
 | `Overlay.tsx` | Dimmed layer and animated panel used by all dialogs. With `scrim={false}`, touches pass through to the table. |
-| `FadeInView.tsx` | Mount animation (fade / slide / zoom) using a shared value. |
+| `FadeInView.tsx` | Mount animation (fade / slide / zoom) using a shared value; appears instantly with reduced motion. |
 | `LottieAnim.tsx` | Crash-proof Lottie player. |
 | `ErrorBoundary.tsx` | Catches render errors and shows "Something went wrong — Restart" (or a silent fallback). |
 | `Toast.tsx` | `ToastProvider` / `useToast()` for non-blocking messages. |
-| `AppButton.tsx` | Gold / glass / ghost / danger button with a spring press. |
+| `AppButton.tsx` | Gold / glass / ghost / danger button built on `PressableScale` (spring press + haptic). |
 | `GlassPanel.tsx`, `Segmented.tsx`, `ScreenHeader.tsx` | Panel surface, segmented control, back-button header. |
 
 ### `src/services/`
@@ -316,9 +321,12 @@ The engine and the tests read these constants, so changing one changes the behav
 | `theme/theme.ts` | Design tokens: colours, gradients, spacing, radii, typography, shadows, motion timings. |
 | `theme/animations.ts` | The Lottie registry (the only `require()` of the JSON files). |
 | `hooks/useLayout.ts` | Responsive card, seat and content sizes from `useWindowDimensions`. |
-| `hooks/useFeedback.ts` | Haptics (tap / play / error / success / warning) that respect the Settings toggle. |
+| `hooks/useFeedback.ts` | Haptics (tap / press / play / error / success / warning) that respect the Settings toggle; works outside the provider too. |
+| `hooks/useMotion.ts` | `{ reduced, ms() }`: true when the "Reduce animations" setting OR the phone's own setting is on. |
+| `hooks/useHandController.ts` | Everything a Game screen needs for `<Hand>`: sorted cards with `isPlayable`, selection, play, illegal-tap hint, the shared `dragState`, sort toggle. Stable callbacks via a latest-value ref. |
+| `utils/handView.ts` | Pure helpers: `sortForDisplay`, `buildHandView` (→ `isPlayable` + state), `illegalMessage`, `cardA11yLabel`, `fanLayout` (fit-to-width arc). Unit-tested. |
 | `utils/format.ts` | Team labels, dates, durations. |
-| `utils/status.ts` | `statusLine` (whose turn, trick winner) and `streakLine` (middle-pile streak text). |
+| `utils/status.ts` | `statusInfo` → `{ text, tone }` (whose turn, trick winner; the tone picks the status icon), `statusLine`, `streakLine` and the short `streakChip` for the pile. |
 
 ---
 
@@ -475,3 +483,98 @@ players, with bots marked.
 - `historyService` has an optional `online` argument.
 - The History screens show the badge and the player list.
 - `firebase.ts` has `getFirebaseApp`.
+
+---
+
+## 13. UI/UX: playable-card highlighting and the interactive table
+
+This pass changed **only the UI** — no file in `src/game/` was touched and every engine test still passes.
+The same components are used offline and online (`useHandController` is shared), so both modes behave
+identically.
+
+### How the highlighting works (engine → `isPlayable` → style)
+
+```
+engine.getLegalCards(state, seat)      rules.legalCards: must follow the led suit if you can,
+        │                              otherwise (or when leading) every card is legal
+        ▼
+legalIds: Set<string>                  GameProvider (offline) / OnlineRoomProvider (online)
+        │
+        ▼
+buildHandView(sorted, legalIds, myTurnToPlay)        utils/handView.ts — pure, unit-tested
+        │   → [{ card, isPlayable, state }]  state = 'playable' | 'blocked' | 'idle'
+        ▼
+<Hand> → <HandCard state=…>             each state sets Reanimated targets:
+          playable → glow 1 (accent border + halo, pulsing), lift −7 %
+          blocked  → dim 1 (dark overlay ≈ 45 % brightness), lower +5 %, pan gesture disabled
+          idle     → all 0; the whole hand ignores touches (not your turn)
+```
+
+- **The UI never decides legality.** It only reads `legalIds` from the engine. If the rules change in
+  `rules.ts`, the highlighting follows automatically.
+- `myTurnToPlay` is true only in the PLAYING phase, on your turn, while no finished trick is on display and
+  the game isn't paused (online: also no move in flight). When you lead, every card is legal, so every card
+  glows.
+- "Dimmed" is a dark overlay rather than 45 % opacity, so overlapping cards never show through each other.
+- **Tapping a blocked card** runs on the UI thread: the card shakes, then `scheduleOnRN(onBlocked)` shows
+  "You must follow ♦ Diamonds" (`illegalMessage`) with an error haptic. Nothing is sent to the engine.
+- Screen readers hear "Eight of Diamonds, playable" / "…, not playable — must follow suit"
+  (`cardA11yLabel`).
+
+### The hand fan always fits (`fanLayout`)
+
+Given the card count and the available width, it picks the largest card width for which:
+(1) the **rotated** outer cards still fit on screen, and (2) every card shows at least 34 % of its width,
+so its rank + suit corner is readable. On a narrow phone with 13 cards the cards shrink instead of being cut
+off. Jest checks every count from 1 to 13 on widths from 300 to 744 px.
+
+### Drag to play
+
+`dragState` is a shared value (0 idle · 1 dragging · 2 over the zone) created in `useHandController` and
+given to both `<Hand>` and `<Table>`. While a card is dragged, its pan worklet calls Reanimated's
+`measure(dropZoneRef)` **on the UI thread** and compares the finger position with the zone's rectangle. The
+`DropZone` reads `dragState` to fade in and brighten. No React state changes during the drag, so it stays at
+60 fps. On release over the zone (or after a firm upward flick) the card fades and `onPlay` runs; otherwise it
+springs back.
+
+### Table, HUD and status
+
+- **Seat panels**: avatar with team ring, mini card-back stack + count, crown, dealer chip; on their turn an
+  accent ring breathes and the panel glows; bots show bouncing "thinking…" dots.
+- **Trick**: cards fly in from the player's side; the winner pops up with a "Winner" tag; the trick sweeps
+  to the winner's side (or the middle pile) and a Lottie sparkle plays where it was collected.
+- **Rang**: the table slot shows a lock "Rang hidden" caption, flips in 3-D with a Lottie burst on reveal;
+  the HUD `RangBadge` flips from the lock to the suit.
+- **Middle pile** shows a streak chip ("Sana won last · 1 more → 3 tricks").
+- **HUD**: hand number, Us / Them chips, "Last" trick bottom sheet, bid chip, and a progress bar per team
+  towards what it needs (bidders → the bid, defenders → 14 − bid).
+- **Status bar**: `statusInfo` returns a text and a tone; the tone picks the icon (✋ your turn, ⏳ waiting,
+  🏆 trick won…). Reveal Rang pulses (with a short tip) when you can't follow suit.
+
+### Motion, accessibility and performance
+
+- **Reduce animations** (Settings) or the phone's "Remove animations" → `useMotion().reduced`: durations
+  become 0, pulses / sparkles / the deal animation are skipped, screens switch without a transition.
+- Every button uses `PressableScale` (press-scale + haptic) and has an `accessibilityLabel`.
+- **Performance**: cards are `memo` components; `useHandController` gives them **stable callbacks** (a
+  latest-value ref), so selecting a card re-renders only the cards whose props changed. One shared `pulse`
+  value drives every glow. The felt decoration is a memoised SVG that only redraws when the table resizes.
+- **Android detail**: the card's `elevation` would draw it above its own overlays, so each card is wrapped
+  in a plain `View` — the glow border and the dim layer then sit on top correctly.
+
+### New / changed files in this pass
+
+| File | What changed |
+|---|---|
+| `components/Hand.tsx` | Rewritten: fanLayout, playable/blocked/idle states, glow + dim, drag-to-drop-zone, per-card shake. |
+| `components/DropZone.tsx`, `components/PressableScale.tsx` | New. |
+| `components/Table.tsx`, `Seat.tsx`, `TrickArea.tsx`, `RangSlot.tsx`, `MiddlePile.tsx` | Felt texture + vignette, seat panels, thinking dots, winner tag, collection sparkle, lock caption, streak chip. |
+| `components/ScoreBoard.tsx`, `ActionBar.tsx` | Score chips, Last button, RangBadge flip, team progress bars; status icons, pulsing Reveal + hint, Sort toggle. |
+| `components/BiddingPanel.tsx`, `ResultModal.tsx`, `LastTrickModal.tsx`, `RangPicker.tsx` | Bid chips, pop-in calls, count-up totals, bottom sheet, press feedback. |
+| `components/AppButton.tsx`, `FadeInView.tsx`, `Segmented.tsx`, `ScreenHeader.tsx` | Press-scale + haptic everywhere; reduced motion. |
+| `hooks/useHandController.ts`, `hooks/useMotion.ts`, `utils/handView.ts` | New. |
+| `utils/status.ts`, `hooks/useFeedback.ts`, `context/SettingsProvider.tsx`, `theme/theme.ts` | `statusInfo` tones + `streakChip`; `press` haptic; `reduceMotion` + `handSort`; accent / dim / motion tokens. |
+| `app/game.tsx`, `app/online/game.tsx`, `app/settings.tsx`, `app/_layout.tsx`, `app/history/index.tsx` | Wired to the above; Settings switches; motion-aware navigator. |
+| `utils/__tests__/handView.test.ts`, `utils/__tests__/status.test.ts` | New tests (sorting, isPlayable, fan fit, messages, the full engine → isPlayable pipeline). |
+
+Screenshots: `docs/screenshots/before/` and `docs/screenshots/after/`.
