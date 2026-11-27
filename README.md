@@ -9,6 +9,15 @@ drawn entirely in code.
 
 ---
 
+## Download (Android APK)
+
+- **Permanent link (GitHub Release v1.0.0):** https://github.com/muhammadsammad42/rang-card-game/releases/download/v1.0.0/rang-card-game-v1.0.0.apk
+- **EAS build page:** https://expo.dev/accounts/sammad897/projects/rang-card-game/builds/8a1eb17c-529e-4e46-b1a7-0e129cca7e6f
+
+Open the link on an Android phone, download the APK and allow "Install unknown apps" when asked.
+Built with EAS Build (`eas build --platform android --profile preview`); the Firebase config comes from
+EAS environment variables (preview environment), never from a committed `.env`.
+
 ## Features
 
 - **The full Rang rules**, in a pure, unit-tested game engine:
